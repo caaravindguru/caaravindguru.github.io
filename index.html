@@ -313,7 +313,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <div class="nt" onclick="showPage('clients')">Clients</div>
   <div class="nt" onclick="promptSettingsPassword()">Settings</div>
   <div class="nr">
-    <span class="fy">FY 2025-26</span>
+    <span class="fy" id="fyLabel" style="cursor:pointer" onclick="openFYPicker()" title="Click to change Financial Year">FY 2025-26 ▾</span>
     <button class="btn bo" onclick="dlTemplate()">⬇ Template</button>
     <button class="btn bo" onclick="exportMonthReport()">📊 Report</button>
     <button class="btn bsave" onclick="saveMonthExcel()">💾 Save Month</button>
@@ -415,7 +415,11 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
 </div><!-- /appPages -->
 
 <!-- ── MODALS ── -->
-<div class="mo" id="passModal"><div class="md" style="max-width:340px">
+<div class="mo" id="fyModal"><div class="md" style="max-width:320px">
+  <h2>Select Financial Year</h2>
+  <div id="fyList" style="margin:12px 0"></div>
+  <div class="ma"><button class="btn bo" onclick="closeMo()">Close</button></div>
+</div></div><div class="md" style="max-width:340px">
   <h2>Settings Access</h2>
   <p style="color:var(--mu);font-size:13px;margin-bottom:12px">Enter the settings password to continue.</p>
   <label class="fl">Password</label><input class="fi" id="passInput" type="password" placeholder="Enter password..." onkeydown="if(event.key==='Enter')checkSettingsPassword()"/>
@@ -639,11 +643,11 @@ const FILING_COLS = [
   { name: 'ClientSPId', number: {} },
   { name: 'ReturnType', text: {} },
   { name: 'PeriodId', text: {} },
-  { name: 'Status', text: {} },
+  { name: 'FilingStatus', text: {} },
   { name: 'DataReceived', text: {} },
   { name: 'DataRecvTimestamp', text: {} },
   { name: 'DateFiled', text: {} },
-  { name: 'Remarks', text: { maxLength: 2000 } },
+  { name: 'FilingRemarks', text: { maxLength: 2000 } },
 ];
 const SETTINGS_COLS = [
   { name: 'SettingKey', text: {} },
@@ -691,7 +695,7 @@ async function loadAllData() {
     (fData.value || []).forEach(item => {
       const f = item.fields;
       const key = f.ClientSPId + '|' + f.ReturnType + '|' + f.PeriodId;
-      filingMap[key] = { spId: item.id, st: f.Status || '', dr: f.DataReceived || 'No', drTs: f.DataRecvTimestamp || '', dof: f.DateFiled || '', rem: f.Remarks || '' };
+      filingMap[key] = { spId: item.id, st: f.FilingStatus || '', dr: f.DataReceived || 'No', drTs: f.DataRecvTimestamp || '', dof: f.DateFiled || '', rem: f.FilingRemarks || '' };
     });
     if (fData['@odata.nextLink']) { filingUrl = fData['@odata.nextLink'].replace(GRAPH, ''); }
     else hasMore = false;
@@ -762,11 +766,11 @@ async function spSaveFiling(clientSPId, rt, pid, data) {
     ClientSPId: parseInt(clientSPId) || clientSPId,
     ReturnType: rt,
     PeriodId: pid,
-    Status: data.st,
+    FilingStatus: data.st,
     DataReceived: data.dr,
     DataRecvTimestamp: data.drTs || '',
     DateFiled: data.dof || '',
-    Remarks: data.rem || '',
+    FilingRemarks: data.rem || '',
   };
   if (filingMap[key] && filingMap[key].spId) {
     await graphRequest('PATCH', '/sites/' + siteId + '/lists/' + listIds.Filings + '/items/' + filingMap[key].spId, { fields });
@@ -810,10 +814,33 @@ const SM = {
 };
 const SC = {'Not Started':'s0','In Progress':'s1c','Completed - Pending Review':'s2c','Pending Review':'s2c','Payment Pending':'s3c','Filed':'s4','Downloaded':'s4','Pending':'s0'};
 const SDC = {'Not Started':'#556278','In Progress':'#5b8df0','Completed - Pending Review':'#a78bfa','Pending Review':'#a78bfa','Payment Pending':'#f59e0b','Filed':'#34d399','Downloaded':'#34d399','Pending':'#f87171'};
-const MP = [{id:'Apr25',l:'Apr',mo:3},{id:'May25',l:'May',mo:4},{id:'Jun25',l:'Jun',mo:5},{id:'Jul25',l:'Jul',mo:6},{id:'Aug25',l:'Aug',mo:7},{id:'Sep25',l:'Sep',mo:8},{id:'Oct25',l:'Oct',mo:9},{id:'Nov25',l:'Nov',mo:10},{id:'Dec25',l:'Dec',mo:11},{id:'Jan26',l:'Jan 26',mo:0},{id:'Feb26',l:'Feb 26',mo:1},{id:'Mar26',l:'Mar 26',mo:2}];
-const QP = [{id:'Q1',l:'Q1 Apr-Jun',months:[3,4,5]},{id:'Q2',l:'Q2 Jul-Sep',months:[6,7,8]},{id:'Q3',l:'Q3 Oct-Dec',months:[9,10,11]},{id:'Q4',l:'Q4 Jan-Mar',months:[0,1,2]}];
 const QE_MONTHS = [5,8,11,2];
 let settingsPassword = 'admin123';
+
+// ── FINANCIAL YEAR ──
+function buildFYData(startYear) {
+  const y1 = startYear, y2 = startYear + 1;
+  const y1s = String(y1).slice(2), y2s = String(y2).slice(2);
+  const months = [
+    {mo:3,l:'Apr'},{mo:4,l:'May'},{mo:5,l:'Jun'},{mo:6,l:'Jul'},
+    {mo:7,l:'Aug'},{mo:8,l:'Sep'},{mo:9,l:'Oct'},{mo:10,l:'Nov'},
+    {mo:11,l:'Dec'},{mo:0,l:'Jan '+y2s},{mo:1,l:'Feb '+y2s},{mo:2,l:'Mar '+y2s}
+  ];
+  const MP = months.map(m => ({id: m.mo>=3?(m.l.slice(0,3)+y1s):(m.l.slice(0,3)+y2s), l: m.l, mo: m.mo}));
+  const QP = [
+    {id:'Q1',l:'Q1 Apr-Jun',months:[3,4,5]},
+    {id:'Q2',l:'Q2 Jul-Sep',months:[6,7,8]},
+    {id:'Q3',l:'Q3 Oct-Dec',months:[9,10,11]},
+    {id:'Q4',l:'Q4 Jan-Mar',months:[0,1,2]}
+  ];
+  return {MP, QP, y1, y2, label:'FY '+y1+'-'+y2s};
+}
+function detectCurrentFY() {
+  const now = new Date(), mo = now.getMonth();
+  return mo >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+}
+let currentFYStart = detectCurrentFY();
+let {MP, QP, y1: FY_START, y2: FY_END, label: FY_LABEL} = buildFYData(currentFYStart);
 
 function getDefaultPeriod(){const now=new Date();let mo=now.getMonth()-1;if(mo<0)mo=11;const idx=MP.findIndex(p=>p.mo===mo);return idx>=0?idx:0;}
 let aRT='GSTR-1',aPT='M',aPi=getDefaultPeriod();
@@ -831,7 +858,7 @@ function nowTs(){const d=new Date();return d.toLocaleDateString('en-IN',{day:'2-
 function addHistory(c,msg){if(!c.history)c.history=[];c.history.unshift({ts:nowTs(),msg,who:currentUser?.name||currentUser?.username||'Staff'});if(c.history.length>50)c.history.pop();}
 
 function getDueDate(rt,freq,pid){
-  const mp=MP.find(p=>p.id===pid);const qp=QP.find(p=>p.id===pid);const FY=2025;
+  const mp=MP.find(p=>p.id===pid);const qp=QP.find(p=>p.id===pid);const FY=FY_START;
   if(mp){const mo=mp.mo;const calYear=mo>=3?FY:FY+1;if(rt==='GSTR-1')return new Date(calYear,mo+1,11);if(rt==='GSTR-3B')return freq==='M'?new Date(calYear,mo+1,20):new Date(calYear,mo+2,22);if(rt==='GSTR-2B')return new Date(calYear,mo+1,14);}
   if(qp){const lastMo=qp.months[2];const calYear=lastMo>=3?FY:FY+1;if(rt==='GSTR-1')return new Date(calYear,lastMo+1,13);if(rt==='GSTR-3B')return new Date(calYear,lastMo+1,22);if(rt==='GSTR-2B')return new Date(calYear,lastMo+1,14);}
   return null;
@@ -883,6 +910,27 @@ setInterval(() => { if (currentUser) fullRefresh(); }, 60000);
 // ══════════════════════════════════════════
 //  PAGE NAV
 // ══════════════════════════════════════════
+function openFYPicker(){
+  const now = new Date(), curFY = now.getMonth()>=3?now.getFullYear():now.getFullYear()-1;
+  const years = [];
+  for(let y = 2024; y <= curFY+1; y++) years.push(y);
+  document.getElementById('fyList').innerHTML = years.map(y => {
+    const lbl = 'FY '+y+'-'+String(y+1).slice(2);
+    const active = y === currentFYStart;
+    return '<div onclick="switchFY('+y+')" style="padding:10px 14px;border-radius:8px;cursor:pointer;margin-bottom:6px;background:'+(active?'var(--ac)':'var(--s2)')+';color:'+(active?'#fff':'var(--tx)')+';font-weight:'+(active?'700':'400')+'">'+lbl+(active?' ✓':'')+'</div>';
+  }).join('');
+  document.getElementById('fyModal').classList.add('on');
+}
+function switchFY(startYear){
+  currentFYStart = startYear;
+  ({MP, QP, y1: FY_START, y2: FY_END, label: FY_LABEL} = buildFYData(startYear));
+  aPi = getDefaultPeriod();
+  document.getElementById('fyLabel').textContent = FY_LABEL + ' ▾';
+  document.getElementById('fyModal').classList.remove('on');
+  if(document.getElementById('page-tracker').classList.contains('on')){renderRTTabs();renderPTs();renderTracker();}
+  if(document.getElementById('page-dashboard').classList.contains('on')){renderDash();}
+  showToast('Switched to '+FY_LABEL);
+}
 function promptSettingsPassword(){
   document.getElementById('passInput').value='';
   document.getElementById('passErr').style.display='none';
@@ -921,7 +969,7 @@ function renderDash(){
   const per=pt==='M'?MP[pi]:QP[pi];const qEnd=isQEnd(pt,pi);
   document.getElementById('qEndBadge').style.display=qEnd?'inline-flex':'none';
   document.getElementById('dBRT').textContent=rt;
-  let periodLabel=qEnd&&pt==='M'?rt+' · '+per.l+' (Consolidated)':rt+' · '+per.l+' · FY 2025-26';
+  let periodLabel=qEnd&&pt==='M'?rt+' · '+per.l+' (Consolidated)':rt+' · '+per.l+' · '+FY_LABEL;
   document.getElementById('dLabel').textContent=periodLabel;
   document.getElementById('dOverLabel').textContent=qEnd&&pt==='M'?'All Filers':'This Period';
   let app=0,fi=0,drY=0,drN=0,sCnt={};SM[rt].forEach(s=>{sCnt[s]=0;});
@@ -1187,8 +1235,8 @@ function dlTemplate(){const csv='"Client Name","GSTIN","Frequency","Batch"\n"Exa
 //  EXPORTS
 // ══════════════════════════════════════════
 function exportCSV(){const p=aP();const rows=[['#','Client','GSTIN','Freq','Batch','Responsible','Urgent','Data Recv','Recv Time',aRT+' Status','Date Filed','Remarks']];clients.forEach((c,i)=>{const cp2=gPc(c);const f=cp2?gF(c,aRT,cp2.id):{st:'N/A',dof:'',dr:'N/A',drTs:'',rem:''};rows.push([i+1,c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch||'Unassigned',c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'',c.urgent?'Yes':'No',f.dr,f.drTs||'',f.st,f.dof||'',f.rem||'']);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Tracker_'+p.l+'.csv';a.click();}
-function saveMonthExcel(){const p=aP();const periodName=(aPT==='M'?MP[aPi].l:QP[aPi].l)+' FY2526';const headers=['#','Client Name','GSTIN','Frequency','Batch','Responsible Person','Urgent','Data Received','Data Recv Timestamp','GSTR-1 Status','GSTR-1 Date Filed','GSTR-1 Remarks','GSTR-3B Status','GSTR-3B Date Filed','GSTR-3B Remarks','GSTR-2B Status','GSTR-2B Date Filed','GSTR-2B Remarks'];const rows=[headers];clients.forEach((c,i)=>{const cp2=gPc(c);const row=[i+1,c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch||'Unassigned',c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'Not Assigned',c.urgent?'Yes':'No',cp2?(gF(c,'GSTR-1',cp2.id).dr||'No'):'N/A',cp2?(gF(c,'GSTR-1',cp2.id).drTs||''):''];RTS.forEach(rt=>{if(cp2){const f=gF(c,rt,cp2.id);row.push(f.st||'',f.dof||'',f.rem||'');}else{row.push('N/A','','');}});rows.push(row);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Monthly_Save_'+periodName.replace(/\s/g,'_')+'.csv';a.click();const btn=event.target;const orig=btn.innerHTML;btn.innerHTML='✓ Saved!';btn.style.background='var(--ac2)';setTimeout(()=>{btn.innerHTML=orig;btn.style.background='';},1800);}
-function exportMonthReport(){const p=aP();const pLabel=(aPT==='M'?p.l:p.l)+' FY2526';const lines=['GST FILING COMPLETION REPORT','Period: '+pLabel,'Generated: '+new Date().toLocaleDateString('en-IN'),''];RTS.forEach(rt=>{let filed=0,tot=0;clients.forEach(c=>{const pp=gPc(c,aPT,aPi);if(!pp)return;tot++;if(isFin(rt,gF(c,rt,pp.id).st))filed++;});lines.push(rt+': '+filed+'/'+tot+' filed ('+(tot?Math.round(filed/tot*100):0)+'%)');});lines.push('','── PENDING (GSTR-1 not filed) ──');clients.forEach(c=>{const pp=gPc(c,aPT,aPi);if(!pp)return;const f=gF(c,'GSTR-1',pp.id);if(!isFin('GSTR-1',f.st))lines.push(c.name+' | '+c.gstin+' | '+f.st+(c.urgent?' 🔴':''));});const blob=new Blob([lines.join('\n')],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='GST_Report_'+pLabel.replace(/\s/g,'_')+'.txt';a.click();showToast('📊 Report exported!');}
+function saveMonthExcel(){const p=aP();const periodName=(aPT==='M'?MP[aPi].l:QP[aPi].l)+' '+FY_LABEL;const headers=['#','Client Name','GSTIN','Frequency','Batch','Responsible Person','Urgent','Data Received','Data Recv Timestamp','GSTR-1 Status','GSTR-1 Date Filed','GSTR-1 Remarks','GSTR-3B Status','GSTR-3B Date Filed','GSTR-3B Remarks','GSTR-2B Status','GSTR-2B Date Filed','GSTR-2B Remarks'];const rows=[headers];clients.forEach((c,i)=>{const cp2=gPc(c);const row=[i+1,c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch||'Unassigned',c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'Not Assigned',c.urgent?'Yes':'No',cp2?(gF(c,'GSTR-1',cp2.id).dr||'No'):'N/A',cp2?(gF(c,'GSTR-1',cp2.id).drTs||''):''];RTS.forEach(rt=>{if(cp2){const f=gF(c,rt,cp2.id);row.push(f.st||'',f.dof||'',f.rem||'');}else{row.push('N/A','','');}});rows.push(row);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Monthly_Save_'+periodName.replace(/\s/g,'_')+'.csv';a.click();const btn=event.target;const orig=btn.innerHTML;btn.innerHTML='✓ Saved!';btn.style.background='var(--ac2)';setTimeout(()=>{btn.innerHTML=orig;btn.style.background='';},1800);}
+function exportMonthReport(){const p=aP();const pLabel=(aPT==='M'?p.l:p.l)+' '+FY_LABEL;const lines=['GST FILING COMPLETION REPORT','Period: '+pLabel,'Generated: '+new Date().toLocaleDateString('en-IN'),''];RTS.forEach(rt=>{let filed=0,tot=0;clients.forEach(c=>{const pp=gPc(c,aPT,aPi);if(!pp)return;tot++;if(isFin(rt,gF(c,rt,pp.id).st))filed++;});lines.push(rt+': '+filed+'/'+tot+' filed ('+(tot?Math.round(filed/tot*100):0)+'%)');});lines.push('','── PENDING (GSTR-1 not filed) ──');clients.forEach(c=>{const pp=gPc(c,aPT,aPi);if(!pp)return;const f=gF(c,'GSTR-1',pp.id);if(!isFin('GSTR-1',f.st))lines.push(c.name+' | '+c.gstin+' | '+f.st+(c.urgent?' 🔴':''));});const blob=new Blob([lines.join('\n')],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='GST_Report_'+pLabel.replace(/\s/g,'_')+'.txt';a.click();showToast('📊 Report exported!');}
 
 // ── PAGINATION ──
 function renderPgn(tot,totPg,w){const el=document.getElementById(w==='t'?'TPG':'CPG'),cpn=w==='t'?tp:cp;if(totPg<=1){el.innerHTML='';return;}let h='<span class="pgi">'+cpn+'/'+totPg+' · '+tot+'</span>';h+='<button class="pgb" onclick="gp(1,\''+w+'\')" '+(cpn===1?'disabled':'')+'>«</button>';h+='<button class="pgb" onclick="gp('+(cpn-1)+',\''+w+'\')" '+(cpn===1?'disabled':'')+'>‹</button>';for(let pp=Math.max(1,cpn-2);pp<=Math.min(totPg,cpn+2);pp++)h+='<button class="pgb '+(pp===cpn?'cur':'')+'" onclick="gp('+pp+',\''+w+'\')">'+pp+'</button>';h+='<button class="pgb" onclick="gp('+(cpn+1)+',\''+w+'\')" '+(cpn===totPg?'disabled':'')+'>›</button>';h+='<button class="pgb" onclick="gp('+totPg+',\''+w+'\')" '+(cpn===totPg?'disabled':'')+'>»</button>';el.innerHTML=h;}
@@ -1203,6 +1251,7 @@ function showToast(msg,col){let t=document.getElementById('toast');if(!t){t=docu
 document.addEventListener('msalReady', tryAutoSignIn);
 // Also try on DOMContentLoaded in case script already loaded
 document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('fyLabel').textContent = FY_LABEL + ' ▾';
   setTimeout(function() {
     if (typeof msal !== 'undefined') tryAutoSignIn();
   }, 500);
