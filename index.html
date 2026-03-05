@@ -23,6 +23,15 @@ const CONFIG = {
 
   // The hostname only, e.g. 'yourfirm.sharepoint.com'
   SP_HOST:     'prasanassociates.sharepoint.com',
+
+  // Slack Incoming Webhook URL for automated snapshots
+  // Create one at: https://api.slack.com/messaging/webhooks
+  // Leave empty ('') to disable Slack snapshots
+  SLACK_WEBHOOK: '',
+
+  // Time to send daily snapshot (24h format, local time)
+  SLACK_SEND_HOUR: 9,   // 9 AM
+  SLACK_SEND_MIN:  0,
 };
 </script>
 
@@ -117,9 +126,9 @@ body.dark{--bg:#090d13;--s1:#0f1420;--s2:#151c2a;--s3:#1c2535;--bd:#222e42;--bd2
 .sel{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:6px 22px 6px 8px;color:var(--tx);font-size:10px;outline:none;cursor:pointer;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23556278'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center}
 .sel:focus{border-color:var(--ac)}
 .bulk{background:var(--s1);border:1px solid var(--ac);border-radius:var(--r);padding:7px 12px;display:none;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap}
-.bulk.on{display:flex}.bl{font-size:10px;color:var(--ac);flex:1}
+.bulk.on{display:flex}.bl{font-size:14px;color:var(--ac);flex:1}
 .cbulk{background:var(--s1);border:1px solid var(--ac4);border-radius:var(--r);padding:7px 12px;display:none;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap}
-.cbulk.on{display:flex}.cbl{font-size:10px;color:var(--ac4);flex:1}
+.cbulk.on{display:flex}.cbl{font-size:14px;color:var(--ac4);flex:1}
 /* ── TABLE ── */
 .tw{background:var(--s2);border:1px solid var(--bd);border-radius:10px;overflow:auto;position:relative}
 table{width:100%;border-collapse:collapse;font-size:16px;min-width:980px}
@@ -128,10 +137,10 @@ th{padding:8px 10px;text-align:left;font-size:13px;letter-spacing:1px;color:var(
 th:hover{color:var(--tx)}
 td{padding:8px 10px;border-bottom:1px solid var(--bd);vertical-align:middle;white-space:nowrap}
 tr:last-child td{border-bottom:none}tr:hover td{background:rgba(91,141,240,.03)}
-.rn{color:var(--mu2);font-size:9px}.cn{font-weight:600;font-size:11px}.cg2{font-size:9px;color:var(--mu);margin-top:1px}
-.fb{font-size:8px;padding:2px 5px;border-radius:3px;font-weight:700}
+.rn{color:var(--mu2);font-size:13px}.cn{font-weight:600;font-size:15px}.cg2{font-size:13px;color:var(--mu);margin-top:1px}
+.fb{font-size:12px;padding:3px 7px;border-radius:3px;font-weight:700}
 .fM{background:rgba(91,141,240,.15);color:var(--ac)}.fQ{background:rgba(52,211,153,.15);color:var(--ac2)}
-.bb{font-size:8px;padding:2px 5px;border-radius:3px;background:rgba(167,139,250,.12);color:#a78bfa}
+.bb{font-size:12px;padding:3px 7px;border-radius:3px;background:rgba(167,139,250,.12);color:#a78bfa}
 /* ── STATUS PILLS ── */
 .sp{display:inline-flex;align-items:center;gap:3px;padding:4px 9px;border-radius:9px;font-size:14px;font-weight:600;border:1px solid transparent;white-space:nowrap;cursor:pointer}
 .sp:hover{opacity:.8}.sp .d{width:5px;height:5px;border-radius:50%;flex-shrink:0}
@@ -140,15 +149,15 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(91,141,240,.03)}
 .s2c{background:rgba(167,139,250,.1);color:#a78bfa;border-color:rgba(167,139,250,.25)}.s2c .d{background:#a78bfa}
 .s3c{background:rgba(245,158,11,.1);color:var(--ac3);border-color:rgba(245,158,11,.25)}.s3c .d{background:var(--ac3)}
 .s4{background:rgba(52,211,153,.1);color:var(--ac2);border-color:rgba(52,211,153,.25)}.s4 .d{background:var(--ac2)}
-.dr{display:inline-flex;align-items:center;gap:3px;padding:3px 7px;border-radius:9px;font-size:9px;font-weight:600;border:1px solid;cursor:pointer}
+.dr{display:inline-flex;align-items:center;gap:3px;padding:4px 9px;border-radius:9px;font-size:13px;font-weight:600;border:1px solid;cursor:pointer}
 .dr:hover{opacity:.8}.dry{background:rgba(52,211,153,.1);color:var(--ac2);border-color:rgba(52,211,153,.3)}
 .drn{background:rgba(248,113,113,.1);color:var(--ac4);border-color:rgba(248,113,113,.3)}
-.ts-cell{font-size:8px;color:var(--mu);white-space:nowrap;line-height:1.3}
+.ts-cell{font-size:13px;color:var(--mu);white-space:nowrap;line-height:1.3}
 .ts-cell.has-ts{color:var(--ac2);font-weight:600}
-.urg{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;cursor:pointer;font-size:11px;transition:all .15s;flex-shrink:0}
+.urg{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:14px;transition:all .15s;flex-shrink:0}
 .urg.on{background:rgba(248,113,113,.15);border:1px solid rgba(248,113,113,.4)}.urg.off{opacity:.2}
 .urg:hover{opacity:1}
-.dl{font-size:8px;padding:2px 5px;border-radius:4px;font-weight:700;white-space:nowrap}
+.dl{font-size:12px;padding:3px 7px;border-radius:4px;font-weight:700;white-space:nowrap}
 .dl-ok{background:rgba(52,211,153,.1);color:var(--ac2);border:1px solid rgba(52,211,153,.2)}
 .dl-warn{background:rgba(245,158,11,.1);color:var(--ac3);border:1px solid rgba(245,158,11,.2)}
 .dl-over{background:rgba(248,113,113,.1);color:var(--ac4);border:1px solid rgba(248,113,113,.2)}
@@ -338,6 +347,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
         <optgroup label="Monthly"><option value="M|0">Apr 25</option><option value="M|1">May 25</option><option value="M|2">Jun 25</option><option value="M|3">Jul 25</option><option value="M|4">Aug 25</option><option value="M|5">Sep 25</option><option value="M|6">Oct 25</option><option value="M|7">Nov 25</option><option value="M|8">Dec 25</option><option value="M|9">Jan 26</option><option value="M|10">Feb 26</option><option value="M|11">Mar 26</option></optgroup>
         <optgroup label="Quarterly"><option value="Q|0">Q1 Apr-Jun</option><option value="Q|1">Q2 Jul-Sep</option><option value="Q|2">Q3 Oct-Dec</option><option value="Q|3">Q4 Jan-Mar</option></optgroup>
       </select>
+      <button class="btn bo" onclick="sendSlackSnapshot(document.getElementById('dRT').value, false)" title="Send current dashboard view to Slack">📤 Slack</button>
     </div>
   </div>
   <div class="card dw" style="margin-bottom:10px"><div class="ct">Overall Status — <span id="dOverLabel"></span></div><div class="sr" id="dOver"></div></div>
@@ -917,6 +927,111 @@ async function fullRefresh() {
 setInterval(() => { if (currentUser) fullRefresh(); }, 60000);
 
 // ══════════════════════════════════════════
+//  SLACK SNAPSHOT SCHEDULER
+//  GSTR-1 snapshots: 7th, 8th, 9th of month
+//  GSTR-3B snapshots: 17th, 18th, 19th of month
+// ══════════════════════════════════════════
+let slackLastSentDate = null;
+
+function buildSlackSnapshot(rt) {
+  // Find the most recent applicable period
+  const now = new Date();
+  const mo = now.getMonth(); // 0-11
+  // Find matching MP index for previous month (filing is for prior month)
+  const targetMo = mo === 0 ? 11 : mo - 1;
+  const pIdx = MP.findIndex(p => p.mo === targetMo);
+  if (pIdx === -1) return null;
+  const per = MP[pIdx];
+
+  let total = 0, filed = 0, inProgress = 0, notStarted = 0, pendingReview = 0, dataRecv = 0;
+  clients.forEach(c => {
+    const p = gPc(c, 'M', pIdx);
+    if (!p) return;
+    total++;
+    const f = gF(c, rt, p.id);
+    if (isFin(rt, f.st)) filed++;
+    else if (f.st === 'In Progress') inProgress++;
+    else if (f.st === 'Completed - Pending Review' || f.st === 'Pending Review') pendingReview++;
+    else if (f.dr === 'Yes') notStarted++;
+    if (f.dr === 'Yes') dataRecv++;
+  });
+  const pending = total - filed;
+  const pct = total ? Math.round(filed / total * 100) : 0;
+  const bar = '▓'.repeat(Math.round(pct/10)) + '░'.repeat(10 - Math.round(pct/10));
+
+  // Per-person breakdown
+  let personLines = '';
+  for (let b = 1; b <= 5; b++) {
+    const pn = persons[b-1]; if (!pn) continue;
+    const bc = clients.filter(c => c.batch === b);
+    let bf = 0, bt = 0;
+    bc.forEach(c => { const p = gPc(c,'M',pIdx); if(!p)return; bt++; const f=gF(c,rt,p.id); if(isFin(rt,f.st))bf++; });
+    if (bt > 0) personLines += `\n  • ${pn}: ${bf}/${bt} filed (${Math.round(bf/bt*100)}%)`;
+  }
+
+  return {
+    text: `📊 *GST Tracker — ${rt} Snapshot*`,
+    blocks: [
+      { type: 'header', text: { type: 'plain_text', text: `📊 GST Tracker — ${rt} | ${per.l} ${FY_LABEL}` } },
+      { type: 'section', fields: [
+        { type: 'mrkdwn', text: `*Total Clients*\n${total}` },
+        { type: 'mrkdwn', text: `*Filed*\n${filed} (${pct}%)` },
+        { type: 'mrkdwn', text: `*Pending*\n${pending}` },
+        { type: 'mrkdwn', text: `*Data Received*\n${dataRecv}` },
+        { type: 'mrkdwn', text: `*In Progress*\n${inProgress}` },
+        { type: 'mrkdwn', text: `*Pending Review*\n${pendingReview}` },
+      ]},
+      { type: 'section', text: { type: 'mrkdwn', text: `*Progress* ${bar} ${pct}%` } },
+      { type: 'section', text: { type: 'mrkdwn', text: `*Per Person:*${personLines || '\n  No batch data'}` } },
+      { type: 'context', elements: [{ type: 'mrkdwn', text: `Sent at ${nowTs()} · GST Tracker` }] }
+    ]
+  };
+}
+
+async function sendSlackSnapshot(rt, silent) {
+  if (!CONFIG.SLACK_WEBHOOK) {
+    if (!silent) showToast('⚠ No Slack webhook configured in CONFIG', 'var(--ac3)');
+    return;
+  }
+  if (!clients.length) { if (!silent) showToast('No data loaded yet', 'var(--ac3)'); return; }
+  const payload = buildSlackSnapshot(rt);
+  if (!payload) { if (!silent) showToast('Could not build snapshot', 'var(--ac3)'); return; }
+  try {
+    await fetch(CONFIG.SLACK_WEBHOOK, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!silent) showToast('✓ Slack snapshot sent for ' + rt);
+    console.log('Slack snapshot sent:', rt, new Date());
+  } catch(e) {
+    if (!silent) showToast('Slack send failed: ' + e.message, 'var(--ac4)');
+  }
+}
+
+function checkAndSendScheduledSnapshots() {
+  if (!CONFIG.SLACK_WEBHOOK || !currentUser) return;
+  const now = new Date();
+  const day = now.getDate();
+  const hour = now.getHours();
+  const min = now.getMinutes();
+  const todayStr = now.toDateString();
+
+  // Only fire once per day, at the configured time
+  if (slackLastSentDate === todayStr) return;
+  if (hour !== CONFIG.SLACK_SEND_HOUR || min !== CONFIG.SLACK_SEND_MIN) return;
+
+  const gstr1Days  = [7, 8, 9];
+  const gstr3bDays = [17, 18, 19];
+
+  if (gstr1Days.includes(day))  { sendSlackSnapshot('GSTR-1', true);  slackLastSentDate = todayStr; }
+  if (gstr3bDays.includes(day)) { sendSlackSnapshot('GSTR-3B', true); slackLastSentDate = todayStr; }
+}
+
+// Check every minute
+setInterval(checkAndSendScheduledSnapshots, 60000);
+
+// ══════════════════════════════════════════
 //  PAGE NAV
 // ══════════════════════════════════════════
 function openFYPicker(){
@@ -930,12 +1045,20 @@ function openFYPicker(){
   }).join('');
   document.getElementById('fyModal').classList.add('on');
 }
+function rebuildDashPeriodDropdown(){
+  const dPT=document.getElementById('dPT');if(!dPT)return;
+  dPT.innerHTML=
+    '<optgroup label="Monthly">'+MP.map((p,i)=>'<option value="M|'+i+'">'+p.l+'</option>').join('')+'</optgroup>'+
+    '<optgroup label="Quarterly">'+QP.map((p,i)=>'<option value="Q|'+i+'">'+p.l+'</option>').join('')+'</optgroup>';
+  dPT._defaultSet=false; // allow default period to be re-applied
+}
 function switchFY(startYear){
   currentFYStart = startYear;
   ({MP, QP, y1: FY_START, y2: FY_END, label: FY_LABEL} = buildFYData(startYear));
   aPi = getDefaultPeriod();
   document.getElementById('fyLabel').textContent = FY_LABEL + ' ▾';
   document.getElementById('fyModal').classList.remove('on');
+  rebuildDashPeriodDropdown();
   if(document.getElementById('page-tracker').classList.contains('on')){renderRTTabs();renderPTs();renderTracker();}
   if(document.getElementById('page-dashboard').classList.contains('on')){renderDash();}
   showToast('Switched to '+FY_LABEL);
