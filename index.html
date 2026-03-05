@@ -1007,9 +1007,12 @@ async function sendSlackSnapshot(rt, silent) {
   const payload = buildSlackSnapshot(rt);
   if (!payload) { if (!silent) showToast('Could not build snapshot', 'var(--ac3)'); return; }
   try {
+    // mode:'no-cors' is required — browsers block direct Slack webhook calls otherwise.
+    // Slack accepts plain text body with no preflight. Response will be opaque (that's fine).
     await fetch(slackWebhook, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload)
     });
     if (!silent) showToast('✓ Slack snapshot sent for ' + rt);
