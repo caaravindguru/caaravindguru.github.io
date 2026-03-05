@@ -1289,13 +1289,12 @@ function toggleTheme(){
 (function(){try{if(localStorage.getItem('gst_theme')==='dark'){document.body.classList.add('dark');}}catch(e){}})();
 
 document.addEventListener('DOMContentLoaded', function() {
-  // Sync toggle icon with saved theme
-  try{if(localStorage.getItem('gst_theme')==='dark'){const t=document.getElementById('themeToggle');if(t)t.textContent='☀️';}}catch(e){}
-});
   document.getElementById('fyLabel').textContent = FY_LABEL + ' ▾';
   setTimeout(function() {
     if (typeof msal !== 'undefined') tryAutoSignIn();
   }, 500);
+  // Sync toggle icon with saved theme
+  try{if(localStorage.getItem('gst_theme')==='dark'){const t=document.getElementById('themeToggle');if(t)t.textContent='☀️';}}catch(e){}
 });
 </script>
 </body>
