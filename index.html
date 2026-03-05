@@ -18,18 +18,13 @@ const CONFIG = {
   TENANT_ID:   '4f0e384f-ee84-4f14-8fad-aa688d6eebdd',
 
   // Your SharePoint site URL — no trailing slash (Step 1)
-  // e.g. 'https://yourfirm.sharepoint.com/sites/GSTTracker'
   SITE_URL:    'https://prasanassociates.sharepoint.com/sites/GSTTracker',
 
   // The hostname only, e.g. 'yourfirm.sharepoint.com'
   SP_HOST:     'prasanassociates.sharepoint.com',
 
-  // Slack Incoming Webhook URL for automated snapshots
-  // Create one at: https://api.slack.com/messaging/webhooks
-  // Leave empty ('') to disable Slack snapshots
-  SLACK_WEBHOOK: '',
-
-  // Time to send daily snapshot (24h format, local time)
+  // Time to send daily Slack snapshot (24h format, local time)
+  // Webhook URL is stored securely in SharePoint Settings, not here
   SLACK_SEND_HOUR: 9,   // 9 AM
   SLACK_SEND_MIN:  0,
 };
@@ -423,6 +418,17 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
     <div class="sc2"><h3>Responsible Persons</h3><div id="pSet"></div><button class="btn bp" style="margin-top:10px" onclick="savePersons()">Save to SharePoint</button></div>
     <div class="sc2"><h3>Batch Summary</h3><div id="bSum"></div></div>
   </div>
+  <div class="sc2" style="margin-top:10px">
+    <h3>Slack Notifications</h3>
+    <p style="font-size:13px;color:var(--mu);margin-bottom:12px;line-height:1.6">Paste your Slack Incoming Webhook URL below. It will be saved securely in SharePoint — never in the code or GitHub. Snapshots are sent automatically at <strong>9 AM</strong> on the 7th–9th (GSTR-1) and 17th–19th (GSTR-3B) of each month.</p>
+    <label class="fl">Slack Incoming Webhook URL</label>
+    <input class="fi" id="slackWebhookInput" type="password" placeholder="https://hooks.slack.com/services/..." autocomplete="off"/>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
+      <button class="btn bp" onclick="saveSlackWebhook()">Save Webhook to SharePoint</button>
+      <button class="btn bo" onclick="testSlackWebhook()">📤 Test Send</button>
+      <span id="slackStatus" style="font-size:13px;color:var(--mu)"></span>
+    </div>
+  </div>
 </div>
 
 </div><!-- /appPages -->
@@ -729,6 +735,9 @@ async function loadAllData() {
     if (item.fields.SettingKey === 'Password') {
       settingsPassword = item.fields.SettingValue || 'admin123';
     }
+    if (item.fields.SettingKey === 'SlackWebhook') {
+      slackWebhook = item.fields.SettingValue || '';
+    }
   });
 }
 
@@ -835,6 +844,7 @@ const SC = {'Not Started':'s0','In Progress':'s1c','Completed - Pending Review':
 const SDC = {'Not Started':'#556278','In Progress':'#5b8df0','Completed - Pending Review':'#a78bfa','Pending Review':'#a78bfa','Payment Pending':'#f59e0b','Filed':'#34d399','Downloaded':'#34d399','Pending':'#f87171'};
 const QE_MONTHS = [5,8,11,2];
 let settingsPassword = 'admin123';
+let slackWebhook = ''; // loaded from SharePoint — never stored in code
 
 // ── FINANCIAL YEAR ──
 function buildFYData(startYear) {
@@ -989,15 +999,15 @@ function buildSlackSnapshot(rt) {
 }
 
 async function sendSlackSnapshot(rt, silent) {
-  if (!CONFIG.SLACK_WEBHOOK) {
-    if (!silent) showToast('⚠ No Slack webhook configured in CONFIG', 'var(--ac3)');
+  if (!slackWebhook) {
+    if (!silent) showToast('⚠ No Slack webhook set — add it in Settings', 'var(--ac3)');
     return;
   }
   if (!clients.length) { if (!silent) showToast('No data loaded yet', 'var(--ac3)'); return; }
   const payload = buildSlackSnapshot(rt);
   if (!payload) { if (!silent) showToast('Could not build snapshot', 'var(--ac3)'); return; }
   try {
-    await fetch(CONFIG.SLACK_WEBHOOK, {
+    await fetch(slackWebhook, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -1010,7 +1020,7 @@ async function sendSlackSnapshot(rt, silent) {
 }
 
 function checkAndSendScheduledSnapshots() {
-  if (!CONFIG.SLACK_WEBHOOK || !currentUser) return;
+  if (!slackWebhook || !currentUser) return;
   const now = new Date();
   const day = now.getDate();
   const hour = now.getHours();
@@ -1345,6 +1355,25 @@ function renderSettings(){
   document.getElementById('pSet').innerHTML=pH;
   let bH='';for(let b=0;b<=5;b++){const bc=clients.filter(c=>b===0?(!c.batch||c.batch===0):c.batch===b),lb=b===0?'Unassigned':'Batch '+b,pn=b>0?(persons[b-1]||''):'';bH+='<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)"><div><span style="font-size:11px">'+lb+'</span>'+(pn?'<span style="color:var(--mu);font-size:9px;margin-left:6px">· '+pn+'</span>':'')+'</div><span style="font-weight:800;font-size:15px;color:'+(b===0?'var(--mu)':'var(--ac)')+'">'+bc.length+'</span></div>';}
   document.getElementById('bSum').innerHTML=bH;
+  // Show webhook status (masked) without exposing the URL
+  const inp=document.getElementById('slackWebhookInput');
+  if(inp){inp.value='';inp.placeholder=slackWebhook?'✓ Webhook saved — paste new URL to update':'https://hooks.slack.com/services/...';}
+  const st=document.getElementById('slackStatus');
+  if(st)st.textContent=slackWebhook?'✓ Webhook configured':'Not configured';
+}
+async function saveSlackWebhook(){
+  const val=document.getElementById('slackWebhookInput').value.trim();
+  if(!val){showToast('⚠ Paste a webhook URL first','var(--ac3)');return;}
+  if(!val.startsWith('https://hooks.slack.com/')){showToast('⚠ Invalid Slack webhook URL','var(--ac4)');return;}
+  slackWebhook=val;
+  await spSaveSettings('SlackWebhook',val).catch(e=>showToast(e.message,'var(--ac4)'));
+  document.getElementById('slackWebhookInput').value='';
+  renderSettings();
+  showToast('✓ Slack webhook saved to SharePoint');
+}
+async function testSlackWebhook(){
+  if(!slackWebhook){const v=document.getElementById('slackWebhookInput').value.trim();if(v.startsWith('https://hooks.slack.com/')){slackWebhook=v;}else{showToast('⚠ Save a webhook first','var(--ac3)');return;}}
+  await sendSlackSnapshot('GSTR-1',false);
 }
 async function savePersons(){
   for(let i=0;i<5;i++){const e=document.getElementById('p'+i);if(e)persons[i]=e.value.trim();}
