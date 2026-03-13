@@ -370,7 +370,17 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
     <input class="si" id="SB" placeholder="Search client or GSTIN..." oninput="renderTracker()"/>
     <select class="sel" id="FF" onchange="renderTracker()"><option value="">All Frequencies</option><option value="M">Monthly</option><option value="Q">Quarterly</option></select>
     <select class="sel" id="FB" onchange="renderTracker()"><option value="">All Batches</option><option value="1">Batch 1</option><option value="2">Batch 2</option><option value="3">Batch 3</option><option value="4">Batch 4</option><option value="5">Batch 5</option><option value="0">Unassigned</option></select>
-    <select class="sel" id="FS" onchange="renderTracker()"><option value="">All Statuses</option></select>
+    <div class="sw" style="position:relative;display:inline-block">
+      <button class="sel" id="FSBtn" onclick="togStatusFilter(event)" style="cursor:pointer;min-width:130px;text-align:left;padding:6px 22px 6px 8px;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23556278'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 7px center;font-size:10px;height:32px;border-radius:var(--r);border:1px solid var(--bd);background-color:var(--s2);color:var(--tx);outline:none" id="FSBtn">All Statuses</button>
+      <div id="FSDropdown" style="display:none;position:absolute;top:100%;left:0;z-index:9999;background:var(--s1);border:1px solid var(--bd2);border-radius:var(--r);min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px 0">
+        <div style="padding:5px 10px 3px;font-size:9px;color:var(--mu);letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--bd);margin-bottom:3px">Filter by Status (multi-select)</div>
+        <div id="FSOptions"></div>
+        <div style="border-top:1px solid var(--bd);margin-top:3px;padding:5px 10px">
+          <button onclick="clearStatusFilter()" style="font-size:9px;color:var(--ac);background:none;border:none;cursor:pointer;padding:0">Clear all</button>
+        </div>
+      </div>
+    </div>
+    <select class="sel" id="FS" style="display:none" onchange="renderTracker()"><option value="">All Statuses</option></select>
     <select class="sel" id="FD" onchange="renderTracker()"><option value="">Data: All</option><option value="Yes">Received</option><option value="No">Pending</option></select>
     <select class="sel" id="FU" onchange="renderTracker()"><option value="">All Priority</option><option value="1">🔴 Urgent Only</option></select>
     <button class="btn bo" onclick="clearFilters()">Clear</button>
@@ -944,57 +954,102 @@ setInterval(() => { if (currentUser) fullRefresh(); }, 60000);
 let slackLastSentDate = null;
 
 function buildSlackSnapshot(rt) {
-  // Find the most recent applicable period
   const now = new Date();
-  const mo = now.getMonth(); // 0-11
-  // Find matching MP index for previous month (filing is for prior month)
+  const mo = now.getMonth();
   const targetMo = mo === 0 ? 11 : mo - 1;
   const pIdx = MP.findIndex(p => p.mo === targetMo);
   if (pIdx === -1) return null;
   const per = MP[pIdx];
 
-  let total = 0, filed = 0, inProgress = 0, notStarted = 0, pendingReview = 0, dataRecv = 0;
+  let total = 0, filed = 0, inProgress = 0, notStarted = 0, pendingReview = 0, paymentPending = 0, dataRecv = 0;
+  const pendingClients = [];
   clients.forEach(c => {
     const p = gPc(c, 'M', pIdx);
     if (!p) return;
     total++;
     const f = gF(c, rt, p.id);
     if (isFin(rt, f.st)) filed++;
-    else if (f.st === 'In Progress') inProgress++;
-    else if (f.st === 'Completed - Pending Review' || f.st === 'Pending Review') pendingReview++;
-    else if (f.dr === 'Yes') notStarted++;
+    else {
+      pendingClients.push({ name: c.name, st: f.st, urgent: c.urgent, batch: c.batch });
+      if (f.st === 'In Progress') inProgress++;
+      else if (f.st === 'Completed - Pending Review' || f.st === 'Pending Review') pendingReview++;
+      else if (f.st === 'Payment Pending') paymentPending++;
+      else notStarted++;
+    }
     if (f.dr === 'Yes') dataRecv++;
   });
   const pending = total - filed;
   const pct = total ? Math.round(filed / total * 100) : 0;
-  const bar = '▓'.repeat(Math.round(pct/10)) + '░'.repeat(10 - Math.round(pct/10));
+  const filledBlocks = Math.round(pct / 10);
+  const bar = '█'.repeat(filledBlocks) + '░'.repeat(10 - filledBlocks);
+  const statusEmoji = pct >= 90 ? '🟢' : pct >= 60 ? '🟡' : '🔴';
 
   // Per-person breakdown
-  let personLines = '';
+  const personLines = [];
   for (let b = 1; b <= 5; b++) {
     const pn = persons[b-1]; if (!pn) continue;
     const bc = clients.filter(c => c.batch === b);
     let bf = 0, bt = 0;
     bc.forEach(c => { const p = gPc(c,'M',pIdx); if(!p)return; bt++; const f=gF(c,rt,p.id); if(isFin(rt,f.st))bf++; });
-    if (bt > 0) personLines += `\n  • ${pn}: ${bf}/${bt} filed (${Math.round(bf/bt*100)}%)`;
+    if (bt > 0) {
+      const pp = Math.round(bf/bt*100);
+      const pBar = pp===100?'✅':(pp>=70?'🟡':'🔴');
+      personLines.push(`${pBar} *${pn}*: ${bf}/${bt} filed (${pp}%)`);
+    }
   }
 
+  // Urgent pending clients (top 5)
+  const urgentPending = pendingClients.filter(c => c.urgent).slice(0, 5);
+  const urgentLines = urgentPending.map(c => `🔴 ${c.name} — _${c.st}_`);
+
+  const blocks = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: `${statusEmoji} GST Tracker — ${rt} | ${per.l} ${FY_LABEL}`, emoji: true }
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*Filing Progress* ${bar} *${pct}%*\n${filed} filed out of ${total} clients`
+      }
+    },
+    {
+      type: 'section',
+      fields: [
+        { type: 'mrkdwn', text: `✅ *Filed*\n${filed}` },
+        { type: 'mrkdwn', text: `⏳ *Pending*\n${pending}` },
+        { type: 'mrkdwn', text: `📥 *Data Received*\n${dataRecv}` },
+        { type: 'mrkdwn', text: `🔵 *In Progress*\n${inProgress}` },
+        { type: 'mrkdwn', text: `🟣 *Pending Review*\n${pendingReview}` },
+        { type: 'mrkdwn', text: `💸 *Payment Pending*\n${paymentPending}` },
+      ]
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: `*👥 Per-Person Breakdown*\n${personLines.length ? personLines.join('\n') : '_No batch data_'}` }
+    },
+  ];
+
+  if (urgentLines.length) {
+    blocks.push({ type: 'divider' });
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: `*🚨 Urgent Pending Clients*\n${urgentLines.join('\n')}` }
+    });
+  }
+
+  blocks.push({ type: 'divider' });
+  blocks.push({
+    type: 'context',
+    elements: [{ type: 'mrkdwn', text: `📤 Sent at ${nowTs()} · GST Tracker · ${FY_LABEL}` }]
+  });
+
   return {
-    text: `📊 *GST Tracker — ${rt} Snapshot*`,
-    blocks: [
-      { type: 'header', text: { type: 'plain_text', text: `📊 GST Tracker — ${rt} | ${per.l} ${FY_LABEL}` } },
-      { type: 'section', fields: [
-        { type: 'mrkdwn', text: `*Total Clients*\n${total}` },
-        { type: 'mrkdwn', text: `*Filed*\n${filed} (${pct}%)` },
-        { type: 'mrkdwn', text: `*Pending*\n${pending}` },
-        { type: 'mrkdwn', text: `*Data Received*\n${dataRecv}` },
-        { type: 'mrkdwn', text: `*In Progress*\n${inProgress}` },
-        { type: 'mrkdwn', text: `*Pending Review*\n${pendingReview}` },
-      ]},
-      { type: 'section', text: { type: 'mrkdwn', text: `*Progress* ${bar} ${pct}%` } },
-      { type: 'section', text: { type: 'mrkdwn', text: `*Per Person:*${personLines || '\n  No batch data'}` } },
-      { type: 'context', elements: [{ type: 'mrkdwn', text: `Sent at ${nowTs()} · GST Tracker` }] }
-    ]
+    text: `${statusEmoji} GST Tracker — ${rt} | ${per.l} ${FY_LABEL} | ${filed}/${total} filed (${pct}%)`,
+    blocks
   };
 }
 
@@ -1154,7 +1209,34 @@ function renderDash(){
 // ══════════════════════════════════════════
 //  TRACKER
 // ══════════════════════════════════════════
-function renderRTTabs(){document.getElementById('rtTabs').innerHTML=RTS.map(rt=>'<div class="rt-t '+(rt===aRT?'on':'')+'" onclick="switchRT(\''+rt+'\')">'+rt+'</div>').join('');const sf=document.getElementById('FS');if(!sf)return;const cur=sf.value;sf.innerHTML='<option value="">All Statuses</option>'+SM[aRT].map(s=>'<option value="'+s+'"'+(cur===s?' selected':'')+'>'+s+'</option>').join('');}
+let selectedStatuses = new Set();
+function renderRTTabs(){
+  document.getElementById('rtTabs').innerHTML=RTS.map(rt=>'<div class="rt-t '+(rt===aRT?'on':'')+'" onclick="switchRT(\''+rt+'\')">'+rt+'</div>').join('');
+  // Also update hidden select for compatibility
+  const sf=document.getElementById('FS');if(!sf)return;
+  sf.innerHTML='<option value="">All Statuses</option>'+SM[aRT].map(s=>'<option value="'+s+'">'+s+'</option>').join('');
+  // Reset selected statuses when RT changes
+  selectedStatuses=new Set();
+  renderStatusFilterDropdown();
+}
+function renderStatusFilterDropdown(){
+  const opts=document.getElementById('FSOptions');if(!opts)return;
+  opts.innerHTML=SM[aRT].map(s=>{
+    const chk=selectedStatuses.has(s);
+    const col=SDC[s]||'#556278';
+    return '<label style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;transition:background .1s" onmouseover="this.style.background=\'var(--s3)\'" onmouseout="this.style.background=\'\'"><input type="checkbox" '+(chk?'checked':'')+' onchange="togStatusSel(\''+s.replace(/'/g,"\\'")+'\')" style="accent-color:var(--ac);cursor:pointer"/><span style="width:7px;height:7px;border-radius:50%;background:'+col+';flex-shrink:0"></span>'+s+'</label>';
+  }).join('');
+  const btn=document.getElementById('FSBtn');if(btn){
+    btn.textContent=selectedStatuses.size===0?'All Statuses':selectedStatuses.size===1?[...selectedStatuses][0]:selectedStatuses.size+' Statuses';
+    btn.style.color=selectedStatuses.size>0?'var(--ac)':'var(--tx)';
+    btn.style.borderColor=selectedStatuses.size>0?'var(--ac)':'var(--bd)';
+  }
+}
+function togStatusFilter(e){e.stopPropagation();const d=document.getElementById('FSDropdown');const isOpen=d.style.display!=='none';closeStatusFilterDropdown();if(!isOpen)d.style.display='block';}
+function closeStatusFilterDropdown(){document.getElementById('FSDropdown').style.display='none';}
+document.addEventListener('click',function(e){if(!e.target.closest('#FSBtn')&&!e.target.closest('#FSDropdown'))closeStatusFilterDropdown();});
+function togStatusSel(s){if(selectedStatuses.has(s))selectedStatuses.delete(s);else selectedStatuses.add(s);renderStatusFilterDropdown();renderTracker();}
+function clearStatusFilter(){selectedStatuses.clear();renderStatusFilterDropdown();closeStatusFilterDropdown();renderTracker();}
 function switchRT(rt){aRT=rt;tp=1;kbFocusIdx=-1;renderRTTabs();renderTracker();}
 function renderPTs(){document.getElementById('mPT').innerHTML=MP.map((p,i)=>'<div class="pt '+(aPT==='M'&&aPi===i?'on':'')+'" onclick="swP(\'M\','+i+')">'+p.l+'</div>').join('');document.getElementById('qPT').innerHTML=QP.map((p,i)=>'<div class="pt '+(aPT==='Q'&&aPi===i?'on':'')+'" onclick="swP(\'Q\','+i+')">'+p.l+'</div>').join('');}
 function swP(t,i){aPT=t;aPi=i;tp=1;kbFocusIdx=-1;renderPTs();renderTracker();}
@@ -1166,7 +1248,7 @@ function updateTrackerQEBanner(){
   else{banner.style.display='none';}
 }
 function gFilt(){
-  const q=(document.getElementById('SB')?.value||'').toLowerCase(),ff=document.getElementById('FF')?.value||'',fb=document.getElementById('FB')?.value,fs=document.getElementById('FS')?.value||'',fd=document.getElementById('FD')?.value||'',fu=document.getElementById('FU')?.value||'';
+  const q=(document.getElementById('SB')?.value||'').toLowerCase(),ff=document.getElementById('FF')?.value||'',fb=document.getElementById('FB')?.value,fd=document.getElementById('FD')?.value||'',fu=document.getElementById('FU')?.value||'';
   const qe=isQEnd(aPT,aPi)&&aPT==='M';
   return clients.filter(c=>{
     if(q&&!c.name.toLowerCase().includes(q)&&!c.gstin.toLowerCase().includes(q))return false;
@@ -1174,7 +1256,7 @@ function gFilt(){
     if(fb!==undefined&&fb!==''){if(c.batch!==(parseInt(fb)||0))return false;}
     if(fu==='1'&&!c.urgent)return false;
     const p=qe?tGetPeriod(c):gPc(c);if(!qe&&!p)return false;
-    if(p&&(fs||fd)){const f=gF(c,aRT,p.id);if(fs&&f.st!==fs)return false;if(fd&&f.dr!==fd)return false;}
+    if(p&&(selectedStatuses.size>0||fd)){const f=gF(c,aRT,p.id);if(selectedStatuses.size>0&&!selectedStatuses.has(f.st))return false;if(fd&&f.dr!==fd)return false;}
     return true;
   }).sort((a,b)=>{if(a.urgent&&!b.urgent)return -1;if(!a.urgent&&b.urgent)return 1;return 0;});
 }
@@ -1203,7 +1285,13 @@ function renderTracker(){
         const cls=SC[f.st]||'s0';
         stC='<div class="sw" id="sw'+c.id+'"><span class="sp '+cls+'" onclick="togDrop(\''+did2+'\',event)"><span class="d" style="background:'+SDC[f.st]+'"></span>'+f.st+'</span><div class="sdrop" id="'+did2+'">'+opts+'</div></div>';
         dofC=filed?'<input type="date" class="di" value="'+(f.dof||'')+'" onchange="setDOF(\''+c.id+'\',\''+aRT+'\',\''+p.id+'\',this.value)"/>':'<span style="color:var(--mu2);font-size:9px">—</span>';
-        remC='<input class="ri" value="'+(f.rem||'').replace(/"/g,'&quot;')+'" placeholder="Remark..." onchange="setRem(\''+c.id+'\',\''+aRT+'\',\''+p.id+'\',this.value)"/>';
+        const remInfo = getEffectiveRemark(c, aRT, p.id);
+        const remVal = (filingMap[c.id+'|'+aRT+'|'+p.id]?.rem || '').replace(/"/g,'&quot;');
+        const remPlaceholder = remInfo.fromPeriod ? 'From '+remInfo.fromPeriod+' (editable)' : 'Remark...';
+        const remTitle = remInfo.fromPeriod ? 'title="Carried from '+remInfo.fromPeriod+' — type to set your own remark for this month"' : '';
+        const remStyle = remInfo.fromPeriod ? 'background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.35);color:var(--ac3);font-style:italic' : '';
+        const remDisplay = remVal || (remInfo.fromPeriod ? remInfo.rem.replace(/"/g,'&quot;') : '');
+        remC='<div style="position:relative"><input class="ri" '+remTitle+' value="'+remDisplay+'" placeholder="'+remPlaceholder+'" style="'+remStyle+'" onfocus="remFocus(this,\''+c.id+'\',\''+aRT+'\',\''+p.id+'\')" onblur="remBlur(this,\''+c.id+'\',\''+aRT+'\',\''+p.id+'\')" onchange="setRem(\''+c.id+'\',\''+aRT+'\',\''+p.id+'\',this.value)"/>'+(remInfo.fromPeriod?'<span style="position:absolute;top:-1px;right:2px;font-size:8px;color:var(--ac3);pointer-events:none" title="Carried from '+remInfo.fromPeriod+'">↩</span>':'')+'</div>';
         actC='<button class="btn bo" style="font-size:9px;padding:3px 7px" onclick="openHist(\''+c.id+'\')" title="History">📋</button><button class="btn bo" style="font-size:9px;padding:3px 7px;margin-left:3px" onclick="openStmt(\''+c.id+'\')" title="Statement">🖨</button>';
       }
       const rowBg=c.urgent?'style="background:rgba(248,113,113,.03)"':qe&&c.freq==='Q'?'style="background:rgba(52,211,153,.025)"':'';
@@ -1270,6 +1358,55 @@ async function setDOF(cid,rt,pid,d){
   filingMap[key].dof=d;addHistory(c,rt+' '+pid+': date filed '+d);
   await Promise.all([spSaveFiling(c.id,rt,pid,filingMap[key]),spSaveClient(c,false)]).catch(()=>{});
 }
+// When focusing a carried-forward remark input, clear it so user can type their own
+function remFocus(input, cid, rt, pid) {
+  const key = cid + '|' + rt + '|' + pid;
+  const ownRem = filingMap[key]?.rem || '';
+  if (!ownRem) {
+    // It's showing a carried remark — clear to let user type fresh
+    input.dataset.carriedVal = input.value;
+    input.value = '';
+    input.style.fontStyle = 'normal';
+    input.style.color = 'var(--tx)';
+    input.style.background = 'var(--s1)';
+    input.style.borderColor = 'var(--ac)';
+  }
+}
+function remBlur(input, cid, rt, pid) {
+  const key = cid + '|' + rt + '|' + pid;
+  const ownRem = filingMap[key]?.rem || '';
+  if (!ownRem && !input.value.trim()) {
+    // Restore carried value display
+    input.value = input.dataset.carriedVal || '';
+    const remInfo = getEffectiveRemark({id: cid}, rt, pid);
+    if (remInfo.fromPeriod) {
+      input.style.fontStyle = 'italic';
+      input.style.color = 'var(--ac3)';
+      input.style.background = 'rgba(245,158,11,.07)';
+      input.style.borderColor = 'rgba(245,158,11,.35)';
+    }
+  }
+}
+
+// ── REMARKS CARRY-FORWARD ──
+// Returns {rem, fromPeriod} — fromPeriod is set if remark was inherited from a prior month
+function getEffectiveRemark(c, rt, pid) {
+  const key = c.id + '|' + rt + '|' + pid;
+  const own = filingMap[key]?.rem || '';
+  if (own) return { rem: own, fromPeriod: null }; // has own remark
+
+  // Look back through previous periods (same FY, monthly only)
+  const pidxNow = MP.findIndex(p => p.id === pid);
+  if (pidxNow <= 0) return { rem: '', fromPeriod: null };
+  for (let i = pidxNow - 1; i >= 0; i--) {
+    const prevPid = MP[i].id;
+    const prevKey = c.id + '|' + rt + '|' + prevPid;
+    const prevRem = filingMap[prevKey]?.rem || '';
+    if (prevRem) return { rem: prevRem, fromPeriod: MP[i].l };
+  }
+  return { rem: '', fromPeriod: null };
+}
+
 async function setRem(cid,rt,pid,v){
   const c=clients.find(x=>x.id===cid);if(!c)return;
   const key=c.id+'|'+rt+'|'+pid;if(!filingMap[key])filingMap[key]={st:SM[rt][0],dr:'No',drTs:'',dof:'',rem:''};
@@ -1288,7 +1425,7 @@ async function applyBulk(){
   sel.clear();closeMo();renderTracker();
   await Promise.all(promises).catch(e=>showToast('Bulk save error: '+e.message,'var(--ac4)'));
 }
-function clearFilters(){['SB','FF','FB','FS','FD','FU'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});renderTracker();}
+function clearFilters(){['SB','FF','FB','FS','FD','FU'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});selectedStatuses.clear();renderStatusFilterDropdown();renderTracker();}
 
 // ── HISTORY / STATEMENT ──
 function openHist(cid){const c=clients.find(x=>x.id===cid);if(!c)return;document.getElementById('histName').textContent=c.name;document.getElementById('histSub').textContent=c.gstin||'';const log=c.history||[];document.getElementById('histLog').innerHTML=log.length?log.map(h=>'<div class="hlog-row"><div class="hlog-ts">'+h.ts+'</div><div style="flex:1;font-size:10px">'+h.msg+'</div><div class="hlog-who">'+(h.who||'')+'</div></div>').join(''):'<div style="color:var(--mu);font-size:11px;padding:10px">No activity yet.</div>';document.getElementById('histMo').classList.add('on');}
