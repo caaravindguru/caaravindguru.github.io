@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>GST Tracker — PANDA</title>
+<title>GST Tracker- Panda </title>
 
 <!-- ════════════════════════════════════════════════════════
   CONFIGURATION — Edit these 4 values before uploading
@@ -157,6 +157,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(91,141,240,.03)}
 .dl-warn{background:rgba(245,158,11,.1);color:var(--ac3);border:1px solid rgba(245,158,11,.2)}
 .dl-over{background:rgba(248,113,113,.1);color:var(--ac4);border:1px solid rgba(248,113,113,.2)}
 .dl-done{background:rgba(52,211,153,.05);color:var(--mu);border:1px solid rgba(52,211,153,.1)}
+.dl-info{background:rgba(91,141,240,.1);color:var(--ac);border:1px solid rgba(91,141,240,.2)}
 /* ── DROPDOWNS ── */
 .sw{position:relative;display:inline-block}
 .sdrop{position:fixed;background:var(--s1);border:1px solid var(--bd2);border-radius:var(--r);z-index:9999;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.18);display:none;overflow:hidden}
@@ -905,8 +906,15 @@ function getDueDate(rt,freq,pid){
 function fmtDue(d){const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return d.getDate()+' '+m[d.getMonth()];}
 function deadlineTag(rt,freq,pid,filed){
   const due=getDueDate(rt,freq,pid);if(!due)return '';
-  if(filed)return '<span class="dl dl-done">✓ Filed</span>';
   const now=new Date();now.setHours(0,0,0,0);const diff=Math.round((due-now)/(86400000));
+  if(rt==='GSTR-2B'){
+    if(filed)return '<span class="dl dl-done">✓ Downloaded</span>';
+    if(diff<0)return '<span class="dl dl-ok">Available '+Math.abs(diff)+'d ago</span>';
+    if(diff===0)return '<span class="dl dl-ok">Available today</span>';
+    if(diff===1)return '<span class="dl dl-warn">Available in 1d · '+fmtDue(due)+'</span>';
+    return '<span class="dl dl-info">Available in '+diff+'d · '+fmtDue(due)+'</span>';
+  }
+  if(filed)return '<span class="dl dl-done">✓ Filed</span>';
   if(diff<0)return '<span class="dl dl-over">'+Math.abs(diff)+'d overdue</span>';
   if(diff===0)return '<span class="dl dl-warn">Due today</span>';
   if(diff<=5)return '<span class="dl dl-warn">'+diff+'d left</span>';
