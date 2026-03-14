@@ -385,6 +385,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
     <select class="sel" id="FD" onchange="renderTracker()"><option value="">Data: All</option><option value="Yes">Received</option><option value="No">Pending</option></select>
     <select class="sel" id="FU" onchange="renderTracker()"><option value="">All Priority</option><option value="1">🔴 Urgent Only</option></select>
     <button class="btn bo" onclick="clearFilters()">Clear</button>
+    <button class="btn bo" onclick="openAllocMo()" style="margin-left:auto;border-color:var(--ac2);color:var(--ac2)">👥 Set Allocation</button>
   </div>
   <div class="bulk" id="bulkBar"><span class="bl" id="bulkCt"></span>
     <button class="btn bo" onclick="openBulk()">Set Status</button>
@@ -444,7 +445,14 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
 
 </div><!-- /appPages -->
 
-<!-- ── MODALS ── -->
+<div class="mo" id="allocMo"><div class="md" style="max-width:400px">
+  <h2>Set Batch Allocation — <span id="allocPeriodLabel" style="color:var(--ac)"></span></h2>
+  <p style="color:var(--mu);font-size:12px;line-height:1.6;margin-bottom:14px">Assign a person to each batch for this period only. This will not affect any other month.</p>
+  <div id="allocFields"></div>
+  <div class="ma"><button class="btn bo" onclick="closeMo()">Cancel</button><button class="btn bg2" onclick="saveAlloc()">Save Allocation</button></div>
+</div></div>
+
+<!-- MODALS -->
 <div class="mo" id="fyModal"><div class="md" style="max-width:320px">
   <h2>Select Financial Year</h2>
   <div id="fyList" style="margin:12px 0"></div>
@@ -749,6 +757,10 @@ async function loadAllData() {
     if (item.fields.SettingKey === 'SlackWebhook') {
       slackWebhook = item.fields.SettingValue || '';
     }
+    if (item.fields.SettingKey && item.fields.SettingKey.startsWith('Alloc_')) {
+      const pid = item.fields.SettingKey.replace('Alloc_', '');
+      periodAllocMap[pid] = safeJSON(item.fields.SettingValue, ['','','','','']);
+    }
   });
 }
 
@@ -891,7 +903,37 @@ function aP(){return aPT==='M'?MP[aPi]:QP[aPi];}
 function gPc(c,pt,pi){const t=pt||aPT,i=pi!==undefined?pi:aPi;if(c.freq===t)return t==='M'?MP[i]:QP[i];return null;}
 function gPcConsolidated(c,mo){if(c.freq==='M'){const idx=MP.findIndex(p=>p.mo===mo);return idx>=0?MP[idx]:null;}else{const q=QP.find(q=>q.months.includes(mo));return q||null;}}
 function isFin(rt,st){return st===SM[rt][SM[rt].length-1];}
+let periodAllocMap = {}; // key: periodId -> ['','','','','']
+
+function pNameForPeriod(b, pid) {
+  const alloc = periodAllocMap[pid];
+  if (alloc && alloc[b-1]) return alloc[b-1];
+  return '';
+}
 function pName(b){return b>0&&persons[b-1]?persons[b-1]:'Person '+b;}
+
+function openAllocMo() {
+  const p = aP();
+  document.getElementById('allocPeriodLabel').textContent = p.l;
+  const alloc = periodAllocMap[p.id] || ['','','','',''];
+  let h = '';
+  for (let i = 0; i < 5; i++) {
+    h += '<div class="per" style="margin-bottom:8px"><span class="pix">B'+(i+1)+'</span><input class="fi" id="ap'+i+'" placeholder="Person name for Batch '+(i+1)+'..." value="'+(alloc[i]||'')+'"/></div>';
+  }
+  document.getElementById('allocFields').innerHTML = h;
+  document.getElementById('allocMo').classList.add('on');
+  setTimeout(() => document.getElementById('ap0').focus(), 100);
+}
+async function saveAlloc() {
+  const p = aP();
+  const alloc = [];
+  for (let i = 0; i < 5; i++) { const e = document.getElementById('ap'+i); alloc.push(e ? e.value.trim() : ''); }
+  periodAllocMap[p.id] = alloc;
+  closeMo();
+  renderTracker();
+  await spSaveSettings('Alloc_'+p.id, alloc).catch(e => showToast(e.message, 'var(--ac4)'));
+  showToast('✓ Allocation saved for '+p.l);
+}
 function isQEnd(pt,pi){if(pt==='M'){const mo=MP[pi]?.mo;return QE_MONTHS.includes(mo);}return true;}
 function tGetPeriod(c){if(isQEnd(aPT,aPi)&&aPT==='M'){return gPcConsolidated(c,MP[aPi].mo);}return gPc(c);}
 function nowTs(){const d=new Date();return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});}
@@ -1280,7 +1322,8 @@ function renderTracker(){
     document.getElementById('TE').style.display='none';
     document.getElementById('TB').innerHTML=page.map((c,idx)=>{
       const p=qe?tGetPeriod(c):gPc(c);const gi=(tp-1)*PS+idx+1;
-      const bL=c.batch>0?'<span class="bb">B'+c.batch+' '+pName(c.batch)+'</span>':'<span style="color:var(--mu2);font-size:9px">—</span>';
+      const curPid=p?p.id:(aP().id);const allocName=c.batch>0?pNameForPeriod(c.batch,curPid):'';
+      const bL=c.batch>0?'<span class="bb">B'+c.batch+(allocName?' '+allocName:'')+'</span>':'<span style="color:var(--mu2);font-size:9px">—</span>';
       let periodCell=qe?'<td><span style="font-size:9px;padding:2px 7px;border-radius:4px;font-weight:600;'+(c.freq==='Q'?'background:rgba(52,211,153,.1);color:var(--ac2);border:1px solid rgba(52,211,153,.25)':'background:rgba(91,141,240,.1);color:var(--ac);border:1px solid rgba(91,141,240,.25)')+'">'+(p?p.l:'N/A')+(c.freq==='Q'?' (QRMP)':'')+'</span></td>':'';
       let stC='',drC='',tsC='',dofC='',remC='',dlC='',actC='',g2bC='';
       if(!p){stC='<span style="color:var(--mu2);font-size:9px">N/A</span>';drC=tsC=dofC='<span style="color:var(--mu2);font-size:9px">—</span>';remC='—';dlC='';g2bC='<span style="color:var(--mu2);font-size:9px">—</span>';}
