@@ -338,7 +338,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
     <div><div class="ph">Dashboard</div><div class="ps" id="dLabel"></div></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <div id="qEndBadge" style="display:none" class="qbadge">⚡ Quarter-End · All Filers Consolidated</div>
-      <select class="sel" id="dRT" onchange="renderDash()"><option>GSTR-1</option><option>GSTR-3B</option><option>GSTR-2B</option></select>
+      <select class="sel" id="dRT" onchange="renderDash()"><option>GSTR-1</option><option>GSTR-3B</option></select>
       <select class="sel" id="dPT" onchange="renderDash()">
         <optgroup label="Monthly"><option value="M|0">Apr 25</option><option value="M|1">May 25</option><option value="M|2">Jun 25</option><option value="M|3">Jul 25</option><option value="M|4">Aug 25</option><option value="M|5">Sep 25</option><option value="M|6">Oct 25</option><option value="M|7">Nov 25</option><option value="M|8">Dec 25</option><option value="M|9">Jan 26</option><option value="M|10">Feb 26</option><option value="M|11">Mar 26</option></optgroup>
         <optgroup label="Quarterly"><option value="Q|0">Q1 Apr-Jun</option><option value="Q|1">Q2 Jul-Sep</option><option value="Q|2">Q3 Oct-Dec</option><option value="Q|3">Q4 Jan-Mar</option></optgroup>
@@ -385,7 +385,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
     <select class="sel" id="FD" onchange="renderTracker()"><option value="">Data: All</option><option value="Yes">Received</option><option value="No">Pending</option></select>
     <select class="sel" id="FU" onchange="renderTracker()"><option value="">All Priority</option><option value="1">🔴 Urgent Only</option></select>
     <button class="btn bo" onclick="clearFilters()">Clear</button>
-    <button class="btn bo" onclick="openAllocMo()" style="margin-left:auto;border-color:var(--ac2);color:var(--ac2)">👥 Set Allocation</button>
+    <button class="btn bo" onclick="promptAllocPassword()" style="margin-left:auto;border-color:var(--ac2);color:var(--ac2)">👥 Set Allocation</button>
   </div>
   <div class="bulk" id="bulkBar"><span class="bl" id="bulkCt"></span>
     <button class="btn bo" onclick="openBulk()">Set Status</button>
@@ -464,6 +464,13 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <label class="fl">Password</label><input class="fi" id="passInput" type="password" placeholder="Enter password..." onkeydown="if(event.key==='Enter')checkSettingsPassword()"/>
   <p id="passErr" style="color:#f87171;font-size:12px;margin-top:6px;display:none">Incorrect password. Please try again.</p>
   <div class="ma"><button class="btn bo" onclick="closeMo()">Cancel</button><button class="btn bp" onclick="checkSettingsPassword()">Unlock</button></div>
+</div></div>
+<div class="mo" id="allocPassModal"><div class="md" style="max-width:340px">
+  <h2>Set Allocation</h2>
+  <p style="color:var(--mu);font-size:13px;margin-bottom:12px">Enter the settings password to modify batch allocation.</p>
+  <label class="fl">Password</label><input class="fi" id="allocPassInput" type="password" placeholder="Enter password..." onkeydown="if(event.key==='Enter')checkAllocPassword()"/>
+  <p id="allocPassErr" style="color:#f87171;font-size:12px;margin-top:6px;display:none">Incorrect password. Please try again.</p>
+  <div class="ma"><button class="btn bo" onclick="closeMo()">Cancel</button><button class="btn bp" onclick="checkAllocPassword()">Unlock</button></div>
 </div></div>
 <div class="mo" id="cModal"><div class="md" style="max-width:460px">
   <h2 id="cMT">Add Client</h2>
@@ -912,6 +919,23 @@ function pNameForPeriod(b, pid) {
 }
 function pName(b){return b>0&&persons[b-1]?persons[b-1]:'Person '+b;}
 
+function promptAllocPassword(){
+  document.getElementById('allocPassInput').value='';
+  document.getElementById('allocPassErr').style.display='none';
+  document.getElementById('allocPassModal').classList.add('on');
+  setTimeout(()=>document.getElementById('allocPassInput').focus(),100);
+}
+function checkAllocPassword(){
+  const entered=document.getElementById('allocPassInput').value;
+  if(entered===settingsPassword){
+    document.getElementById('allocPassModal').classList.remove('on');
+    openAllocMo();
+  } else {
+    document.getElementById('allocPassErr').style.display='block';
+    document.getElementById('allocPassInput').value='';
+    document.getElementById('allocPassInput').focus();
+  }
+}
 function openAllocMo() {
   const p = aP();
   document.getElementById('allocPeriodLabel').textContent = p.l;
@@ -1214,11 +1238,16 @@ function showPage(p) {
 //  DASHBOARD
 // ══════════════════════════════════════════
 function renderDash(){
-  // Set default period to previous month if not yet changed
+  // Smart default: date 1-13 → previous month GSTR-1; date 14+ → previous month GSTR-3B
+  const dRT = document.getElementById('dRT');
   const dPT = document.getElementById('dPT');
   if(dPT && !dPT._defaultSet) {
-    const defIdx = getDefaultPeriod();
-    dPT.value = 'M|' + defIdx;
+    const now = new Date();
+    const day = now.getDate();
+    const prevMoIdx = getDefaultPeriod(); // previous month index in MP
+    dPT.value = 'M|' + prevMoIdx;
+    // Set return type based on date
+    if(dRT) dRT.value = day <= 13 ? 'GSTR-1' : 'GSTR-3B';
     dPT._defaultSet = true;
   }
   const rt=document.getElementById('dRT').value;
@@ -1400,7 +1429,14 @@ async function setSt(cid,rt,pid,st){
   const c=clients.find(x=>x.id===cid);if(!c)return;
   const key=c.id+'|'+rt+'|'+pid;
   if(!filingMap[key])filingMap[key]={st:SM[rt][0],dr:'No',drTs:'',dof:'',rem:''};
-  const f=filingMap[key];const prev=f.st;f.st=st;if(!isFin(rt,st))f.dof='';
+  const f=filingMap[key];
+  // Block status change if Data Received is not Yes (except when reverting to Not Started)
+  if(f.dr!=='Yes' && st!==SM[rt][0]){
+    closeAllDrops();
+    showToast('⚠ Please mark Data Received as YES before changing status','var(--ac3)');
+    return;
+  }
+  const prev=f.st;f.st=st;if(!isFin(rt,st))f.dof='';
   addHistory(c,rt+' '+pid+': "'+prev+'" → "'+st+'"');
   closeAllDrops();renderTracker();if(document.getElementById('page-dashboard').classList.contains('on'))renderDash();
   await Promise.all([spSaveFiling(c.id,rt,pid,f),spSaveClient(c,false)]).catch(e=>showToast('Save error: '+e.message,'var(--ac4)'));
@@ -1473,8 +1509,14 @@ function renderBulk(){const b=document.getElementById('bulkBar');if(sel.size>0){
 function openBulk(){document.getElementById('bSS').innerHTML=SM[aRT].map(s=>'<option>'+s+'</option>').join('');document.getElementById('bkMo').classList.add('on');}
 async function applyBulk(){
   const st=document.getElementById('bSS').value;
+  const firstStatusInList=SM[aRT][0];
   const promises=[];
-  for(const id of sel){const c=clients.find(x=>x.id===id);if(!c)continue;const p=isQEnd(aPT,aPi)&&aPT==='M'?tGetPeriod(c):gPc(c);if(!p)continue;const key=c.id+'|'+aRT+'|'+p.id;if(!filingMap[key])filingMap[key]={st:SM[aRT][0],dr:'No',drTs:'',dof:'',rem:''};filingMap[key].st=st;if(!isFin(aRT,st))filingMap[key].dof='';addHistory(c,'Bulk: '+aRT+' → "'+st+'"');promises.push(spSaveFiling(c.id,aRT,p.id,filingMap[key]));promises.push(spSaveClient(c,false));}
+  let blocked=0;
+  for(const id of sel){const c=clients.find(x=>x.id===id);if(!c)continue;const p=isQEnd(aPT,aPi)&&aPT==='M'?tGetPeriod(c):gPc(c);if(!p)continue;const key=c.id+'|'+aRT+'|'+p.id;if(!filingMap[key])filingMap[key]={st:SM[aRT][0],dr:'No',drTs:'',dof:'',rem:''};
+  // Block if Data Received is not Yes and not reverting to Not Started
+  if(filingMap[key].dr!=='Yes'&&st!==firstStatusInList){blocked++;continue;}
+  filingMap[key].st=st;if(!isFin(aRT,st))filingMap[key].dof='';addHistory(c,'Bulk: '+aRT+' → "'+st+'"');promises.push(spSaveFiling(c.id,aRT,p.id,filingMap[key]));promises.push(spSaveClient(c,false));}
+  if(blocked>0)showToast('⚠ '+blocked+' client(s) skipped — Data Received not marked Yes','var(--ac3)');
   sel.clear();closeMo();renderTracker();
   await Promise.all(promises).catch(e=>showToast('Bulk save error: '+e.message,'var(--ac4)'));
 }
