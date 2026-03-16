@@ -427,7 +427,6 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
 <div class="page" id="page-settings">
   <div class="ph">Settings</div><div class="ps">Person names and settings are shared across all users via SharePoint</div>
   <div class="sg">
-    <div class="sc2"><h3>Responsible Persons</h3><div id="pSet"></div><button class="btn bp" style="margin-top:10px" onclick="savePersons()">Save to SharePoint</button></div>
     <div class="sc2"><h3>Batch Summary</h3><div id="bSum"></div></div>
   </div>
   <div class="sc2" style="margin-top:10px">
@@ -1586,9 +1585,7 @@ async function confirmDel(){
 //  SETTINGS
 // ══════════════════════════════════════════
 function renderSettings(){
-  let pH='';for(let i=0;i<5;i++)pH+='<div class="per"><span class="pix">B'+(i+1)+'</span><input class="fi" id="p'+i+'" placeholder="Person name..." value="'+(persons[i]||'')+'"/></div>';
-  document.getElementById('pSet').innerHTML=pH;
-  let bH='';for(let b=0;b<=5;b++){const bc=clients.filter(c=>b===0?(!c.batch||c.batch===0):c.batch===b),lb=b===0?'Unassigned':'Batch '+b,pn=b>0?(persons[b-1]||''):'';bH+='<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)"><div><span style="font-size:11px">'+lb+'</span>'+(pn?'<span style="color:var(--mu);font-size:9px;margin-left:6px">· '+pn+'</span>':'')+'</div><span style="font-weight:800;font-size:15px;color:'+(b===0?'var(--mu)':'var(--ac)')+'">'+bc.length+'</span></div>';}
+  let bH='';for(let b=0;b<=5;b++){const bc=clients.filter(c=>b===0?(!c.batch||c.batch===0):c.batch===b),lb=b===0?'Unassigned':'Batch '+b;bH+='<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)"><span style="font-size:11px">'+lb+'</span><span style="font-weight:800;font-size:15px;color:'+(b===0?'var(--mu)':'var(--ac)')+'">'+bc.length+'</span></div>';}
   document.getElementById('bSum').innerHTML=bH;
   // Show webhook status (masked) without exposing the URL
   const inp=document.getElementById('slackWebhookInput');
