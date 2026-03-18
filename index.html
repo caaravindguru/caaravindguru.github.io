@@ -1278,16 +1278,20 @@ function renderDash(){
   const drP=app?Math.round(drY/app*100):0;
   document.getElementById('dDR').innerHTML='<div style="display:flex;align-items:center;gap:9px;margin-bottom:9px"><div style="font-size:26px;font-weight:900;color:var(--ac2)">'+drP+'%</div><div><div style="font-size:11px;font-weight:600">Data Received</div><div style="font-size:9px;color:var(--mu)">'+drY+' of '+app+'</div></div></div><div class="mb" style="height:5px"><div class="mf" style="width:'+drP+'%"></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px"><div class="psi"><div class="v cg">'+drY+'</div><div class="l">Received</div></div><div class="psi"><div class="v cr">'+drN+'</div><div class="l">Pending</div></div></div>';
   let pH='';for(let b=1;b<=5;b++){const bc=clients.filter(c=>c.batch===b);let bf=0,bdr=0,bApp=0;const bsCnt={};SM[rt].forEach(s=>{bsCnt[s]=0;});bc.forEach(c=>{let p;if(qEnd&&pt==='M'){p=gPcConsolidated(c,MP[pi].mo);}else{p=gPc(c,pt,pi);}if(!p)return;bApp++;const f=gF(c,rt,p.id);if(isFin(rt,f.st))bf++;if(f.dr==='Yes')bdr++;const st=f.st||SM[rt][0];if(bsCnt[st]!==undefined)bsCnt[st]++;});const bp=bApp?Math.round(bf/bApp*100):0,pn=persons[b-1]||'Batch '+b;
-  // Build stat cells for all statuses (skip Filed — shown separately below)
-  const nonFinalStatuses=SM[rt].slice(0,-1);const statCols=['var(--mu)','var(--ac)','#a78bfa','var(--ac3)','var(--ac4)'];
-  const statCells=nonFinalStatuses.map((s,si)=>'<div class="psi"><div class="v" style="color:'+(statCols[si]||'var(--mu)')+'">'+bsCnt[s]+'</div><div class="l" style="font-size:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+s+'">'+s.replace('Completed - ','')+'</div></div>').join('');
-  const gridCols=nonFinalStatuses.length;
+  // Row 1: Data Recv + main progress statuses (excluding Payment Pending and Filed)
+  // Row 2: Payment Pending (if exists) + Filed
+  const allStatuses=SM[rt];const finalSt=allStatuses[allStatuses.length-1];
+  const hasPP=allStatuses.includes('Payment Pending');
+  const row1Statuses=allStatuses.slice(0,-1).filter(s=>s!=='Payment Pending');
+  const statCols=['var(--mu)','var(--ac)','#a78bfa'];
+  const row1Cells=row1Statuses.map((s,si)=>'<div class="psi"><div class="v" style="color:'+(statCols[si]||'var(--mu)')+'">'+bsCnt[s]+'</div><div class="l" style="font-size:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+s+'">'+s.replace('Completed - ','')+'</div></div>').join('');
+  const row2Cols=hasPP?'1fr 1fr':'1fr';
+  const row2Cells=(hasPP?'<div class="psi"><div class="v" style="color:var(--ac3)">'+(bsCnt['Payment Pending']||0)+'</div><div class="l">Payment Pending</div></div>':'')+'<div class="psi"><div class="v" style="color:var(--ac2)">'+bf+'</div><div class="l">Filed</div></div>';
   pH+='<div class="pc"><div class="pn">'+pn+'</div><div class="psb">Batch '+b+' · '+bc.length+' clients</div>'
-    +'<div style="display:grid;grid-template-columns:repeat('+(gridCols+1)+',1fr);gap:3px;margin-top:6px">'
+    +'<div style="display:grid;grid-template-columns:repeat('+(row1Statuses.length+1)+',1fr);gap:3px;margin-top:6px">'
     +'<div class="psi"><div class="v" style="color:var(--ac2)">'+bdr+'</div><div class="l">Data Recv</div></div>'
-    +statCells
-    +'</div>'
-    +'<div style="display:grid;grid-template-columns:1fr;gap:3px;margin-top:3px"><div class="psi"><div class="v" style="color:var(--ac2)">'+bf+'</div><div class="l">Filed</div></div></div>'
+    +row1Cells+'</div>'
+    +'<div style="display:grid;grid-template-columns:'+row2Cols+';gap:3px;margin-top:3px">'+row2Cells+'</div>'
     +'<div class="mb" style="margin-top:6px"><div class="mf" style="width:'+bp+'%"></div></div>'
     +'<div style="font-size:10px;color:var(--mu);margin-top:3px;text-align:right">'+bp+'% filed</div></div>';}
   pH+='<div class="pc" style="border-style:dashed"><div class="pn" style="color:var(--mu)">Unassigned</div><div class="psb">'+clients.filter(c=>!c.batch).length+' clients</div></div>';
