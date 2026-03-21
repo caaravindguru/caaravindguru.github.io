@@ -905,7 +905,16 @@ async function spSaveFiling(clientSPId, rt, pid, data) {
     WorkDoneByApprovedBy: data.awApproved || '',
   };
   if (filingMap[key] && filingMap[key].spId) {
-    await graphRequest('PATCH', '/sites/' + siteId + '/lists/' + listIds.Filings + '/items/' + filingMap[key].spId, { fields });
+    try {
+      await graphRequest('PATCH', '/sites/' + siteId + '/lists/' + listIds.Filings + '/items/' + filingMap[key].spId, { fields });
+    } catch(patchErr) {
+      // 404 = item deleted from SP; 400 = field doesn't exist yet → retry as POST
+      if (patchErr.message && (patchErr.message.includes('404') || patchErr.message.includes('not found') || patchErr.message.includes('400') || patchErr.message.includes('Invalid'))) {
+        delete filingMap[key].spId;
+        const r = await graphRequest('POST', '/sites/' + siteId + '/lists/' + listIds.Filings + '/items', { fields });
+        filingMap[key].spId = r.id;
+      } else { throw patchErr; }
+    }
   } else {
     const r = await graphRequest('POST', '/sites/' + siteId + '/lists/' + listIds.Filings + '/items', { fields });
     if (!filingMap[key]) filingMap[key] = {};
