@@ -428,6 +428,26 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <div class="ph">Settings</div><div class="ps">Person names and settings are shared across all users via SharePoint</div>
   <div class="sg">
     <div class="sc2"><h3>Batch Summary</h3><div id="bSum"></div></div>
+    <div class="sc2">
+      <h3>Person Names (Batch Allocation)</h3>
+      <div id="persFields">
+        <div class="per"><span class="pix">B1</span><input class="fi" id="p0" placeholder="Name for Batch 1..."/></div>
+        <div class="per"><span class="pix">B2</span><input class="fi" id="p1" placeholder="Name for Batch 2..."/></div>
+        <div class="per"><span class="pix">B3</span><input class="fi" id="p2" placeholder="Name for Batch 3..."/></div>
+        <div class="per"><span class="pix">B4</span><input class="fi" id="p3" placeholder="Name for Batch 4..."/></div>
+        <div class="per"><span class="pix">B5</span><input class="fi" id="p4" placeholder="Name for Batch 5..."/></div>
+      </div>
+      <button class="btn bp" style="margin-top:12px" onclick="savePersons()">Save Names</button>
+    </div>
+  </div>
+  <div class="sc2" style="margin-top:10px">
+    <h3>👥 Managers (Actual Worker Approval)</h3>
+    <p style="font-size:13px;color:var(--mu);margin-bottom:12px;line-height:1.6">These four managers can approve "Actual Worker" assignments in the tracker. When a team member selects a different worker for a filing, the system will ask one of these managers to verify with the settings password.</p>
+    <div class="per"><span class="pix" style="width:28px">M1</span><input class="fi" id="mgr0" placeholder="Manager 1 name..."/></div>
+    <div class="per"><span class="pix" style="width:28px">M2</span><input class="fi" id="mgr1" placeholder="Manager 2 name..."/></div>
+    <div class="per"><span class="pix" style="width:28px">M3</span><input class="fi" id="mgr2" placeholder="Manager 3 name..."/></div>
+    <div class="per"><span class="pix" style="width:28px">M4</span><input class="fi" id="mgr3" placeholder="Manager 4 name..."/></div>
+    <button class="btn bp" style="margin-top:12px" onclick="saveManagers()">Save Managers</button>
   </div>
   <div class="sc2" style="margin-top:10px">
     <h3>Slack Notifications</h3>
@@ -470,6 +490,26 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <label class="fl">Password</label><input class="fi" id="allocPassInput" type="password" placeholder="Enter password..." onkeydown="if(event.key==='Enter')checkAllocPassword()"/>
   <p id="allocPassErr" style="color:#f87171;font-size:12px;margin-top:6px;display:none">Incorrect password. Please try again.</p>
   <div class="ma"><button class="btn bo" onclick="closeMo()">Cancel</button><button class="btn bp" onclick="checkAllocPassword()">Unlock</button></div>
+</div></div>
+
+<!-- ACTUAL WORKER APPROVAL MODAL -->
+<div class="mo" id="awMo"><div class="md" style="max-width:420px">
+  <h2>Set Actual Worker</h2>
+  <p style="color:var(--mu);font-size:12px;line-height:1.6;margin-bottom:14px">The person actually doing the work may differ from the batch allocation. A manager must approve this assignment.</p>
+  <input type="hidden" id="awClientId"/>
+  <input type="hidden" id="awRT"/>
+  <input type="hidden" id="awPid"/>
+  <input type="hidden" id="awWorkerName"/>
+  <div style="background:var(--s3);border:1px solid var(--bd);border-radius:var(--r);padding:10px 14px;margin-bottom:14px">
+    <div style="font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Assigning</div>
+    <div style="font-weight:800;font-size:14px;color:var(--tx)" id="awWorkerLabel">—</div>
+  </div>
+  <label class="fl">Approving Manager *</label>
+  <select class="fi" id="awManagerSel"><option value="">— Select Manager —</option></select>
+  <label class="fl" style="margin-top:10px">Manager Password *</label>
+  <input class="fi" id="awPassInput" type="password" placeholder="Enter settings password..." onkeydown="if(event.key==='Enter')confirmAW()"/>
+  <p id="awErr" style="color:#f87171;font-size:12px;margin-top:6px;min-height:14px"></p>
+  <div class="ma"><button class="btn bo" onclick="closeMo()">Cancel</button><button class="btn bg2" onclick="confirmAW()">✓ Approve &amp; Save</button></div>
 </div></div>
 <div class="mo" id="cModal"><div class="md" style="max-width:460px">
   <h2 id="cMT">Add Client</h2>
@@ -698,6 +738,8 @@ const FILING_COLS = [
   { name: 'DataRecvTimestamp', text: {} },
   { name: 'DateFiled', text: {} },
   { name: 'FilingRemarks', text: { maxLength: 2000 } },
+  { name: 'ActualWorker', text: {} },
+  { name: 'ActualWorkerApprovedBy', text: {} },
 ];
 const SETTINGS_COLS = [
   { name: 'SettingKey', text: {} },
@@ -745,7 +787,7 @@ async function loadAllData() {
     (fData.value || []).forEach(item => {
       const f = item.fields;
       const key = f.ClientSPId + '|' + f.ReturnType + '|' + f.PeriodId;
-      filingMap[key] = { spId: item.id, st: f.FilingStatus || '', dr: f.DataReceived || 'No', drTs: f.DataRecvTimestamp || '', dof: f.DateFiled || '', rem: f.FilingRemarks || '' };
+      filingMap[key] = { spId: item.id, st: f.FilingStatus || '', dr: f.DataReceived || 'No', drTs: f.DataRecvTimestamp || '', dof: f.DateFiled || '', rem: f.FilingRemarks || '', aw: f.ActualWorker || '', awApproved: f.ActualWorkerApprovedBy || '' };
     });
     if (fData['@odata.nextLink']) { filingUrl = fData['@odata.nextLink'].replace(GRAPH, ''); }
     else hasMore = false;
@@ -759,6 +801,9 @@ async function loadAllData() {
     }
     if (item.fields.SettingKey === 'Password') {
       settingsPassword = item.fields.SettingValue || 'admin123';
+    }
+    if (item.fields.SettingKey === 'Managers') {
+      managerNames = safeJSON(item.fields.SettingValue, ['','','','']);
     }
     if (item.fields.SettingKey === 'SlackWebhook') {
       slackWebhook = item.fields.SettingValue || '';
@@ -775,7 +820,7 @@ function safeJSON(str, def) { try { return JSON.parse(str); } catch(e) { return 
 // ── FILING LOOKUP ──
 function gF(c, rt, pid) {
   const key = c.id + '|' + rt + '|' + pid;
-  return filingMap[key] || { st: SM[rt][0], dr: 'No', drTs: '', dof: '', rem: '' };
+  return filingMap[key] || { st: SM[rt][0], dr: 'No', drTs: '', dof: '', rem: '', aw: '', awApproved: '' };
 }
 
 // ══════════════════════════════════════════
@@ -828,6 +873,8 @@ async function spSaveFiling(clientSPId, rt, pid, data) {
     DataRecvTimestamp: data.drTs || '',
     DateFiled: data.dof || '',
     FilingRemarks: data.rem || '',
+    ActualWorker: data.aw || '',
+    ActualWorkerApprovedBy: data.awApproved || '',
   };
   if (filingMap[key] && filingMap[key].spId) {
     await graphRequest('PATCH', '/sites/' + siteId + '/lists/' + listIds.Filings + '/items/' + filingMap[key].spId, { fields });
@@ -874,6 +921,10 @@ const SDC = {'Not Started':'#556278','In Progress':'#5b8df0','Completed - Pendin
 const QE_MONTHS = [5,8,11,2];
 let settingsPassword = 'admin123';
 let slackWebhook = ''; // loaded from SharePoint — never stored in code
+
+// ── MANAGERS (4 managers who can approve Actual Worker assignments) ──
+// These names should match the 'persons' array entries or be set separately in Settings
+let managerNames = ['','','',''];  // loaded from SharePoint settings (key: 'Managers')
 
 // ── FINANCIAL YEAR ──
 function buildFYData(startYear) {
@@ -1361,7 +1412,7 @@ function renderTracker(){
   const filt=gFilt(),tot=filt.length,totPg=Math.max(1,Math.ceil(tot/PS));
   if(tp>totPg)tp=totPg;const page=filt.slice((tp-1)*PS,tp*PS);
   const is3B=aRT==='GSTR-3B';
-  document.getElementById('TH').innerHTML='<tr><th><input type="checkbox" id="SA" onchange="tAll(this)"/></th><th>#</th><th>Client</th><th>Freq</th><th>Batch</th>'+(qe?'<th style="color:var(--ac3)">Period ⚡</th>':'')+'<th>Deadline</th>'+(is3B?'<th>GSTR-2B</th>':'')+'<th>Data Recv</th><th>Recv Time</th><th>'+aRT+' Status</th><th>Date Filed</th><th>Remarks</th><th>Actions</th></tr>';
+  document.getElementById('TH').innerHTML='<tr><th><input type="checkbox" id="SA" onchange="tAll(this)"/></th><th>#</th><th>Client</th><th>Freq</th><th>Batch</th>'+(qe?'<th style="color:var(--ac3)">Period ⚡</th>':'')+'<th>Deadline</th>'+(is3B?'<th>GSTR-2B</th>':'')+'<th>Data Recv</th><th>Recv Time</th><th>'+aRT+' Status</th><th>Actual Worker</th><th>Date Filed</th><th>Remarks</th><th>Actions</th></tr>';
   if(!page.length){document.getElementById('TB').innerHTML='';document.getElementById('TE').style.display='block';}
   else{
     document.getElementById('TE').style.display='none';
@@ -1370,8 +1421,8 @@ function renderTracker(){
       const curPid=p?p.id:(aP().id);const allocName=c.batch>0?pNameForPeriod(c.batch,curPid):'';
       const bL=c.batch>0?'<span class="bb">B'+c.batch+(allocName?' '+allocName:'')+'</span>':'<span style="color:var(--mu2);font-size:9px">—</span>';
       let periodCell=qe?'<td><span style="font-size:9px;padding:2px 7px;border-radius:4px;font-weight:600;'+(c.freq==='Q'?'background:rgba(52,211,153,.1);color:var(--ac2);border:1px solid rgba(52,211,153,.25)':'background:rgba(91,141,240,.1);color:var(--ac);border:1px solid rgba(91,141,240,.25)')+'">'+(p?p.l:'N/A')+(c.freq==='Q'?' (QRMP)':'')+'</span></td>':'';
-      let stC='',drC='',tsC='',dofC='',remC='',dlC='',actC='',g2bC='';
-      if(!p){stC='<span style="color:var(--mu2);font-size:9px">N/A</span>';drC=tsC=dofC='<span style="color:var(--mu2);font-size:9px">—</span>';remC='—';dlC='';g2bC='<span style="color:var(--mu2);font-size:9px">—</span>';}
+      let stC='',drC='',tsC='',dofC='',awC='',remC='',dlC='',actC='',g2bC='';
+      if(!p){stC='<span style="color:var(--mu2);font-size:9px">N/A</span>';drC=tsC=dofC=awC='<span style="color:var(--mu2);font-size:9px">—</span>';remC='—';dlC='';g2bC='<span style="color:var(--mu2);font-size:9px">—</span>';}
       else{
         const f=gF(c,aRT,p.id),dr=f.dr||'No';const filed=isFin(aRT,f.st);
         dlC=deadlineTag(aRT,c.freq,p.id,filed);
@@ -1382,7 +1433,17 @@ function renderTracker(){
         const opts=SM[aRT].map(s=>'<div class="so" onclick="setSt(\''+c.id+'\',\''+aRT+'\',\''+p.id+'\',this.dataset.s)" data-s="'+s+'"><span class="dot" style="background:'+SDC[s]+'"></span>'+s+'</div>').join('');
         const cls=SC[f.st]||'s0';
         stC='<div class="sw" id="sw'+c.id+'"><span class="sp '+cls+'" onclick="togDrop(\''+did2+'\',event)"><span class="d" style="background:'+SDC[f.st]+'"></span>'+f.st+'</span><div class="sdrop" id="'+did2+'">'+opts+'</div></div>';
-        dofC=filed?'<input type="date" class="di" value="'+(f.dof||'')+'" onchange="setDOF(\''+c.id+'\',\''+aRT+'\',\''+p.id+'\',this.value)"/>':'<span style="color:var(--mu2);font-size:9px">—</span>';
+        // Date Filed: always shown as editable date input (auto-set when Filed, manually changeable)
+        dofC='<input type="date" class="di" value="'+(f.dof||'')+'" onchange="setDOF(\''+c.id+'\',\''+aRT+'\',\''+p.id+'\',this.value)" title="'+(filed?'Auto-set when Filed — editable':'Set date filed manually')+'" style="'+(filed?'border-color:var(--ac2);':'')+'">';
+        // Actual Worker dropdown (only for GSTR-1 and GSTR-3B)
+        const awVal=f.aw||'';const awApproved=f.awApproved||'';
+        const awAllNames=[...persons.filter(x=>x)];
+        const awDid='dpaw'+c.id+aRT.replace(/\W/g,'')+p.id;
+        const awOpts='<div class="so" onclick="setAW(\''+c.id+'\',\''+aRT+'\',\''+p.id+'\',\'\')" data-v="">— None —</div>'+awAllNames.map(n=>'<div class="so" onclick="setAW(\''+c.id+'\',\''+aRT+'\',\''+p.id+'\',\''+n.replace(/'/g,"\\'")+'\')" data-v="'+n.replace(/"/g,'&quot;')+'">'+n+'</div>').join('');
+        const awBadge=awApproved?'<span style="font-size:8px;background:rgba(52,211,153,.15);color:var(--ac2);border:1px solid rgba(52,211,153,.3);border-radius:3px;padding:1px 4px;margin-left:3px" title="Approved by '+awApproved+'">✓</span>':'<span style="font-size:8px;background:rgba(245,158,11,.15);color:var(--ac3);border:1px solid rgba(245,158,11,.3);border-radius:3px;padding:1px 4px;margin-left:3px" title="Pending manager approval">⏳</span>';
+        awC=awVal
+          ? '<div class="sw"><span style="display:inline-flex;align-items:center;gap:2px;font-size:12px;font-weight:600;cursor:pointer;color:var(--tx)" onclick="togDrop(\''+awDid+'\',event)">'+awVal+awBadge+'</span><div class="sdrop" id="'+awDid+'">'+awOpts+'</div></div>'
+          : '<div class="sw"><span style="font-size:11px;color:var(--mu);cursor:pointer;border:1px dashed var(--bd);border-radius:4px;padding:2px 6px" onclick="togDrop(\''+awDid+'\',event)">Set worker</span><div class="sdrop" id="'+awDid+'">'+awOpts+'</div></div>';
         const remInfo = getEffectiveRemark(c, aRT, p.id);
         const remVal = (filingMap[c.id+'|'+aRT+'|'+p.id]?.rem || '').replace(/"/g,'&quot;');
         const remPlaceholder = remInfo.fromPeriod ? 'From '+remInfo.fromPeriod+' (editable)' : 'Remark...';
@@ -1393,7 +1454,7 @@ function renderTracker(){
         actC='<button class="btn bo" style="font-size:9px;padding:3px 7px" onclick="openHist(\''+c.id+'\')" title="History">📋</button><button class="btn bo" style="font-size:9px;padding:3px 7px;margin-left:3px" onclick="openStmt(\''+c.id+'\')" title="Statement">🖨</button>';
       }
       const rowBg=c.urgent?'style="background:rgba(248,113,113,.03)"':qe&&c.freq==='Q'?'style="background:rgba(52,211,153,.025)"':'';
-      return '<tr id="tr'+c.id+'" data-cid="'+c.id+'" '+rowBg+'><td><input type="checkbox" '+(sel.has(c.id)?'checked':'')+' onchange="togSel(\''+c.id+'\',this)"/></td><td class="rn">'+gi+'</td><td><div style="display:flex;align-items:center;gap:5px"><span class="urg '+(c.urgent?'on':'off')+'" onclick="togUrg(\''+c.id+'\')" title="Toggle urgent">🔴</span><div><div class="cn">'+c.name+'</div><div class="cg2">'+c.gstin+'</div></div></div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Mon':'Qtr')+'</span></td><td>'+bL+'</td>'+periodCell+'<td>'+dlC+'</td>'+(is3B?'<td>'+g2bC+'</td>':'')+'<td>'+drC+'</td><td>'+tsC+'</td><td>'+stC+'</td><td>'+dofC+'</td><td>'+remC+'</td><td>'+actC+'</td></tr>';
+      return '<tr id="tr'+c.id+'" data-cid="'+c.id+'" '+rowBg+'><td><input type="checkbox" '+(sel.has(c.id)?'checked':'')+' onchange="togSel(\''+c.id+'\',this)"/></td><td class="rn">'+gi+'</td><td><div style="display:flex;align-items:center;gap:5px"><span class="urg '+(c.urgent?'on':'off')+'" onclick="togUrg(\''+c.id+'\')" title="Toggle urgent">🔴</span><div><div class="cn">'+c.name+'</div><div class="cg2">'+c.gstin+'</div></div></div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Mon':'Qtr')+'</span></td><td>'+bL+'</td>'+periodCell+'<td>'+dlC+'</td>'+(is3B?'<td>'+g2bC+'</td>':'')+'<td>'+drC+'</td><td>'+tsC+'</td><td>'+stC+'</td><td>'+awC+'</td><td>'+dofC+'</td><td>'+remC+'</td><td>'+actC+'</td></tr>';
     }).join('');
     kbPageRows=page;applyKBFocus(page);
   }
@@ -1429,7 +1490,7 @@ async function togUrg(cid){
 async function togDR(cid,rt,pid){
   const c=clients.find(x=>x.id===cid);if(!c)return;
   const key=c.id+'|'+rt+'|'+pid;
-  if(!filingMap[key])filingMap[key]={st:SM[rt][0],dr:'No',drTs:'',dof:'',rem:''};
+  if(!filingMap[key])filingMap[key]={st:SM[rt][0],dr:'No',drTs:'',dof:'',rem:'',aw:'',awApproved:''};
   const f=filingMap[key];const wasYes=f.dr==='Yes';
   f.dr=wasYes?'No':'Yes';
   if(f.dr==='Yes'){f.drTs=nowTs();addHistory(c,'Data received for '+rt+' '+pid);}
@@ -1444,7 +1505,7 @@ document.addEventListener('click',closeAllDrops);
 async function setSt(cid,rt,pid,st){
   const c=clients.find(x=>x.id===cid);if(!c)return;
   const key=c.id+'|'+rt+'|'+pid;
-  if(!filingMap[key])filingMap[key]={st:SM[rt][0],dr:'No',drTs:'',dof:'',rem:''};
+  if(!filingMap[key])filingMap[key]={st:SM[rt][0],dr:'No',drTs:'',dof:'',rem:'',aw:'',awApproved:''};
   const f=filingMap[key];
   // Block status change if Data Received is not Yes (except GSTR-2B — no data received for that)
   if(rt!=='GSTR-2B'&&f.dr!=='Yes'&&st!==SM[rt][0]){
@@ -1452,15 +1513,21 @@ async function setSt(cid,rt,pid,st){
     showToast('⚠ Please mark Data Received as YES before changing status','var(--ac3)');
     return;
   }
-  const prev=f.st;f.st=st;if(!isFin(rt,st))f.dof='';
+  const prev=f.st;f.st=st;
+  // Auto-set date filed when status changes TO Filed, clear it when moving away
+  if(isFin(rt,st)){
+    if(!f.dof){const now=new Date();f.dof=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');}
+  } else {
+    f.dof='';
+  }
   addHistory(c,rt+' '+pid+': "'+prev+'" → "'+st+'"');
   closeAllDrops();renderTracker();if(document.getElementById('page-dashboard').classList.contains('on'))renderDash();
   await Promise.all([spSaveFiling(c.id,rt,pid,f),spSaveClient(c,false)]).catch(e=>showToast('Save error: '+e.message,'var(--ac4)'));
 }
 async function setDOF(cid,rt,pid,d){
   const c=clients.find(x=>x.id===cid);if(!c)return;
-  const key=c.id+'|'+rt+'|'+pid;if(!filingMap[key])filingMap[key]={st:SM[rt][0],dr:'No',drTs:'',dof:'',rem:''};
-  filingMap[key].dof=d;addHistory(c,rt+' '+pid+': date filed '+d);
+  const key=c.id+'|'+rt+'|'+pid;if(!filingMap[key])filingMap[key]={st:SM[rt][0],dr:'No',drTs:'',dof:'',rem:'',aw:'',awApproved:''};
+  filingMap[key].dof=d;addHistory(c,rt+' '+pid+': date filed manually set to '+d);
   await Promise.all([spSaveFiling(c.id,rt,pid,filingMap[key]),spSaveClient(c,false)]).catch(()=>{});
 }
 // When focusing a carried-forward remark input, clear it so user can type their own
@@ -1514,9 +1581,47 @@ function getEffectiveRemark(c, rt, pid) {
 
 async function setRem(cid,rt,pid,v){
   const c=clients.find(x=>x.id===cid);if(!c)return;
-  const key=c.id+'|'+rt+'|'+pid;if(!filingMap[key])filingMap[key]={st:SM[rt][0],dr:'No',drTs:'',dof:'',rem:''};
+  const key=c.id+'|'+rt+'|'+pid;if(!filingMap[key])filingMap[key]={st:SM[rt][0],dr:'No',drTs:'',dof:'',rem:'',aw:'',awApproved:''};
   filingMap[key].rem=v;
   await spSaveFiling(c.id,rt,pid,filingMap[key]).catch(()=>{});
+}
+
+// ── ACTUAL WORKER ──
+// Called when a worker name is selected from the dropdown
+function setAW(cid,rt,pid,name){
+  closeAllDrops();
+  // Open approval modal for manager sign-off
+  document.getElementById('awClientId').value=cid;
+  document.getElementById('awRT').value=rt;
+  document.getElementById('awPid').value=pid;
+  document.getElementById('awWorkerName').value=name;
+  document.getElementById('awWorkerLabel').textContent=name||'— None (clear) —';
+  // populate manager dropdown
+  const sel=document.getElementById('awManagerSel');
+  sel.innerHTML='<option value="">— Select Manager —</option>'+managerNames.filter(x=>x).map(m=>'<option value="'+m.replace(/"/g,'&quot;')+'">'+m+'</option>').join('');
+  document.getElementById('awPassInput').value='';
+  document.getElementById('awErr').textContent='';
+  document.getElementById('awMo').classList.add('on');
+  setTimeout(()=>document.getElementById('awManagerSel').focus(),100);
+}
+async function confirmAW(){
+  const cid=document.getElementById('awClientId').value;
+  const rt=document.getElementById('awRT').value;
+  const pid=document.getElementById('awPid').value;
+  const workerName=document.getElementById('awWorkerName').value;
+  const manager=document.getElementById('awManagerSel').value;
+  const pass=document.getElementById('awPassInput').value;
+  if(!manager){document.getElementById('awErr').textContent='Please select a manager.';return;}
+  if(pass!==settingsPassword){document.getElementById('awErr').textContent='Incorrect password.';document.getElementById('awPassInput').value='';document.getElementById('awPassInput').focus();return;}
+  const c=clients.find(x=>x.id===cid);if(!c){closeMo();return;}
+  const key=c.id+'|'+rt+'|'+pid;
+  if(!filingMap[key])filingMap[key]={st:SM[rt][0],dr:'No',drTs:'',dof:'',rem:'',aw:'',awApproved:''};
+  filingMap[key].aw=workerName;
+  filingMap[key].awApproved=workerName?manager:'';
+  addHistory(c,'Actual worker for '+rt+' '+pid+' set to "'+(workerName||'None')+'" (approved by '+manager+')');
+  closeMo();renderTracker();
+  await Promise.all([spSaveFiling(c.id,rt,pid,filingMap[key]),spSaveClient(c,false)]).catch(e=>showToast('Save error: '+e.message,'var(--ac4)'));
+  showToast('✓ Actual worker saved & approved by '+manager);
 }
 function togSel(id,cb){if(cb.checked)sel.add(id);else sel.delete(id);renderBulk();}
 function tAll(cb){gFilt().slice((tp-1)*PS,tp*PS).forEach(c=>{if(cb.checked)sel.add(c.id);else sel.delete(c.id);});renderBulk();renderTracker();}
@@ -1528,10 +1633,12 @@ async function applyBulk(){
   const firstStatusInList=SM[aRT][0];
   const promises=[];
   let blocked=0;
-  for(const id of sel){const c=clients.find(x=>x.id===id);if(!c)continue;const p=isQEnd(aPT,aPi)&&aPT==='M'?tGetPeriod(c):gPc(c);if(!p)continue;const key=c.id+'|'+aRT+'|'+p.id;if(!filingMap[key])filingMap[key]={st:SM[aRT][0],dr:'No',drTs:'',dof:'',rem:''};
+  for(const id of sel){const c=clients.find(x=>x.id===id);if(!c)continue;const p=isQEnd(aPT,aPi)&&aPT==='M'?tGetPeriod(c):gPc(c);if(!p)continue;const key=c.id+'|'+aRT+'|'+p.id;if(!filingMap[key])filingMap[key]={st:SM[aRT][0],dr:'No',drTs:'',dof:'',rem:'',aw:'',awApproved:''};
   // Block if Data Received is not Yes and not reverting to Not Started
   if(filingMap[key].dr!=='Yes'&&st!==firstStatusInList){blocked++;continue;}
-  filingMap[key].st=st;if(!isFin(aRT,st))filingMap[key].dof='';addHistory(c,'Bulk: '+aRT+' → "'+st+'"');promises.push(spSaveFiling(c.id,aRT,p.id,filingMap[key]));promises.push(spSaveClient(c,false));}
+  filingMap[key].st=st;
+  if(isFin(aRT,st)){if(!filingMap[key].dof){const now=new Date();filingMap[key].dof=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');}}else{filingMap[key].dof='';}
+  addHistory(c,'Bulk: '+aRT+' → "'+st+'"');promises.push(spSaveFiling(c.id,aRT,p.id,filingMap[key]));promises.push(spSaveClient(c,false));}
   if(blocked>0)showToast('⚠ '+blocked+' client(s) skipped — Data Received not marked Yes','var(--ac3)');
   sel.clear();closeMo();renderTracker();
   await Promise.all(promises).catch(e=>showToast('Bulk save error: '+e.message,'var(--ac4)'));
@@ -1609,6 +1716,8 @@ function renderSettings(){
   if(inp){inp.value='';inp.placeholder=slackWebhook?'✓ Webhook saved — paste new URL to update':'https://hooks.slack.com/services/...';}
   const st=document.getElementById('slackStatus');
   if(st)st.textContent=slackWebhook?'✓ Webhook configured':'Not configured';
+  // Render manager name inputs
+  for(let i=0;i<4;i++){const e=document.getElementById('mgr'+i);if(e)e.value=managerNames[i]||'';}
 }
 async function saveSlackWebhook(){
   const val=document.getElementById('slackWebhookInput').value.trim();
@@ -1629,6 +1738,12 @@ async function savePersons(){
   renderSettings();renderDash();
   await spSaveSettings('Persons',persons).catch(e=>showToast(e.message,'var(--ac4)'));
   showToast('✓ Names saved to SharePoint');
+}
+async function saveManagers(){
+  for(let i=0;i<4;i++){const e=document.getElementById('mgr'+i);if(e)managerNames[i]=e.value.trim();}
+  renderSettings();
+  await spSaveSettings('Managers',managerNames).catch(e=>showToast(e.message,'var(--ac4)'));
+  showToast('✓ Manager names saved to SharePoint');
 }
 
 // ══════════════════════════════════════════
