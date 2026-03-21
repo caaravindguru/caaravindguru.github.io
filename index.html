@@ -149,15 +149,13 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(91,141,240,.03)}
 .drn{background:rgba(248,113,113,.1);color:var(--ac4);border-color:rgba(248,113,113,.3)}
 .ts-cell{font-size:13px;color:var(--mu);white-space:nowrap;line-height:1.3}
 .ts-cell.has-ts{color:var(--ac2);font-weight:600}
-.urg{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:14px;transition:all .15s;flex-shrink:0}
-.urg.on{background:rgba(248,113,113,.15);border:1px solid rgba(248,113,113,.4)}.urg.off{opacity:.2}
-.urg:hover{opacity:1}
 .dl{font-size:12px;padding:3px 7px;border-radius:4px;font-weight:700;white-space:nowrap}
 .dl-ok{background:rgba(52,211,153,.1);color:var(--ac2);border:1px solid rgba(52,211,153,.2)}
 .dl-warn{background:rgba(245,158,11,.1);color:var(--ac3);border:1px solid rgba(245,158,11,.2)}
 .dl-over{background:rgba(248,113,113,.1);color:var(--ac4);border:1px solid rgba(248,113,113,.2)}
 .dl-done{background:rgba(52,211,153,.05);color:var(--mu);border:1px solid rgba(52,211,153,.1)}
 .dl-info{background:rgba(91,141,240,.1);color:var(--ac);border:1px solid rgba(91,141,240,.2)}
+.aw-pending{color:var(--ac3);font-style:italic}
 /* ── DROPDOWNS ── */
 .sw{position:relative;display:inline-block}
 .sdrop{position:fixed;background:var(--s1);border:1px solid var(--bd2);border-radius:var(--r);z-index:9999;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.18);display:none;overflow:hidden}
@@ -383,9 +381,16 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
     </div>
     <select class="sel" id="FS" style="display:none" onchange="renderTracker()"><option value="">All Statuses</option></select>
     <select class="sel" id="FD" onchange="renderTracker()"><option value="">Data: All</option><option value="Yes">Received</option><option value="No">Pending</option></select>
-    <select class="sel" id="FU" onchange="renderTracker()"><option value="">All Priority</option><option value="1">🔴 Urgent Only</option></select>
     <button class="btn bo" onclick="clearFilters()">Clear</button>
-    <button class="btn bo" onclick="promptAllocPassword()" style="margin-left:auto;border-color:var(--ac2);color:var(--ac2)">👥 Set Allocation</button>
+    <select class="sel" id="pageSizeSel" onchange="changePageSize(this.value)" style="margin-left:auto" title="Rows per page">
+      <option value="15">15 / page</option>
+      <option value="20">20 / page</option>
+      <option value="40">40 / page</option>
+      <option value="60">60 / page</option>
+      <option value="80">80 / page</option>
+      <option value="100">100 / page</option>
+    </select>
+    <button class="btn bo" onclick="promptAllocPassword()" style="border-color:var(--ac2);color:var(--ac2)">👥 Set Allocation</button>
   </div>
   <div class="bulk" id="bulkBar"><span class="bl" id="bulkCt"></span>
     <button class="btn bo" onclick="openBulk()">Set Status</button>
@@ -493,23 +498,39 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
 </div></div>
 
 <!-- ACTUAL WORKER APPROVAL MODAL -->
-<div class="mo" id="awMo"><div class="md" style="max-width:420px">
-  <h2>Set Actual Worker</h2>
-  <p style="color:var(--mu);font-size:12px;line-height:1.6;margin-bottom:14px">The person actually doing the work may differ from the batch allocation. A manager must approve this assignment.</p>
+<div class="mo" id="awMo"><div class="md" style="max-width:460px">
+  <h2>Work Done By</h2>
   <input type="hidden" id="awClientId"/>
   <input type="hidden" id="awRT"/>
   <input type="hidden" id="awPid"/>
   <input type="hidden" id="awWorkerName"/>
+  <!-- Who is assigning -->
   <div style="background:var(--s3);border:1px solid var(--bd);border-radius:var(--r);padding:10px 14px;margin-bottom:14px">
-    <div style="font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Assigning</div>
+    <div style="font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:var(--mu);margin-bottom:3px">Assigning worker</div>
     <div style="font-weight:800;font-size:14px;color:var(--tx)" id="awWorkerLabel">—</div>
   </div>
-  <label class="fl">Approving Manager *</label>
-  <select class="fi" id="awManagerSel"><option value="">— Select Manager —</option></select>
-  <label class="fl" style="margin-top:10px">Manager Password *</label>
-  <input class="fi" id="awPassInput" type="password" placeholder="Enter settings password..." onkeydown="if(event.key==='Enter')confirmAW()"/>
+  <!-- Manager approval section - shown/hidden based on whether current user is a manager -->
+  <div id="awManagerSection">
+    <div style="background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.25);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:16px">✅</span>
+      <div><div style="font-size:12px;font-weight:700;color:var(--ac2)">You are logged in as a manager</div><div style="font-size:10px;color:var(--mu)" id="awCurrentUserLabel"></div></div>
+    </div>
+    <p style="color:var(--mu);font-size:12px;line-height:1.6;margin-bottom:10px">As a manager, this assignment will be immediately approved under your Microsoft account.</p>
+  </div>
+  <!-- Non-manager section -->
+  <div id="awNonManagerSection">
+    <div style="background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.3);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <span style="font-size:16px">⏳</span>
+      <div><div style="font-size:12px;font-weight:700;color:var(--ac3)">Pending Manager Approval</div><div style="font-size:10px;color:var(--mu)">A manager must approve this before it is finalised. The entry will show as pending until then.</div></div>
+    </div>
+    <label class="fl">Approving Manager</label>
+    <select class="fi" id="awManagerSel"><option value="">— Select Manager to Notify —</option></select>
+  </div>
   <p id="awErr" style="color:#f87171;font-size:12px;margin-top:6px;min-height:14px"></p>
-  <div class="ma"><button class="btn bo" onclick="closeMo()">Cancel</button><button class="btn bg2" onclick="confirmAW()">✓ Approve &amp; Save</button></div>
+  <div class="ma">
+    <button class="btn bo" onclick="closeMo()">Cancel</button>
+    <button class="btn bg2" id="awSaveBtn" onclick="confirmAW()">Save</button>
+  </div>
 </div></div>
 <div class="mo" id="cModal"><div class="md" style="max-width:460px">
   <h2 id="cMT">Add Client</h2>
@@ -702,20 +723,27 @@ async function getSiteId() {
 }
 
 async function getOrCreateList(name, columns) {
+  let lid;
   try {
     const data = await graphRequest('GET', '/sites/' + siteId + '/lists/' + encodeURIComponent(name));
-    return data.id;
+    lid = data.id;
   } catch(e) {
-    // Create list
     const listBody = { displayName: name, list: { template: 'genericList' } };
     const created = await graphRequest('POST', '/sites/' + siteId + '/lists', listBody);
-    const lid = created.id;
-    // Add columns
-    for (const col of columns) {
+    lid = created.id;
+  }
+  // Ensure all required columns exist (handles schema upgrades on existing lists)
+  let existingCols = [];
+  try {
+    const colData = await graphRequest('GET', '/sites/' + siteId + '/lists/' + lid + '/columns');
+    existingCols = (colData.value || []).map(c => (c.name || '').toLowerCase());
+  } catch(e) {}
+  for (const col of columns) {
+    if (!existingCols.includes((col.name || '').toLowerCase())) {
       await graphRequest('POST', '/sites/' + siteId + '/lists/' + lid + '/columns', col).catch(() => {});
     }
-    return lid;
   }
+  return lid;
 }
 
 // ══════════════════════════════════════════
@@ -738,8 +766,8 @@ const FILING_COLS = [
   { name: 'DataRecvTimestamp', text: {} },
   { name: 'DateFiled', text: {} },
   { name: 'FilingRemarks', text: { maxLength: 2000 } },
-  { name: 'ActualWorker', text: {} },
-  { name: 'ActualWorkerApprovedBy', text: {} },
+  { name: 'WorkDoneBy', text: {} },
+  { name: 'WorkDoneByApprovedBy', text: {} },
 ];
 const SETTINGS_COLS = [
   { name: 'SettingKey', text: {} },
@@ -787,7 +815,7 @@ async function loadAllData() {
     (fData.value || []).forEach(item => {
       const f = item.fields;
       const key = f.ClientSPId + '|' + f.ReturnType + '|' + f.PeriodId;
-      filingMap[key] = { spId: item.id, st: f.FilingStatus || '', dr: f.DataReceived || 'No', drTs: f.DataRecvTimestamp || '', dof: f.DateFiled || '', rem: f.FilingRemarks || '', aw: f.ActualWorker || '', awApproved: f.ActualWorkerApprovedBy || '' };
+      filingMap[key] = { spId: item.id, st: f.FilingStatus || '', dr: f.DataReceived || 'No', drTs: f.DataRecvTimestamp || '', dof: f.DateFiled || '', rem: f.FilingRemarks || '', aw: f.WorkDoneBy || '', awApproved: f.WorkDoneByApprovedBy || '' };
     });
     if (fData['@odata.nextLink']) { filingUrl = fData['@odata.nextLink'].replace(GRAPH, ''); }
     else hasMore = false;
@@ -873,8 +901,8 @@ async function spSaveFiling(clientSPId, rt, pid, data) {
     DataRecvTimestamp: data.drTs || '',
     DateFiled: data.dof || '',
     FilingRemarks: data.rem || '',
-    ActualWorker: data.aw || '',
-    ActualWorkerApprovedBy: data.awApproved || '',
+    WorkDoneBy: data.aw || '',
+    WorkDoneByApprovedBy: data.awApproved || '',
   };
   if (filingMap[key] && filingMap[key].spId) {
     await graphRequest('PATCH', '/sites/' + siteId + '/lists/' + listIds.Filings + '/items/' + filingMap[key].spId, { fields });
@@ -955,7 +983,7 @@ function getDefaultPeriod(){const now=new Date();let mo=now.getMonth()-1;if(mo<0
 function getDefaultRT(){const d=new Date().getDate();return d<=13?'GSTR-1':'GSTR-3B';}
 let aRT=getDefaultRT(),aPT='M',aPi=getDefaultPeriod();
 let sel=new Set(),cSel=new Set(),eid=null,did=null,tp=1,cp=1,kbFocusIdx=-1,kbPageRows=[];
-const PS=15;
+let PS=15;
 
 function aP(){return aPT==='M'?MP[aPi]:QP[aPi];}
 function gPc(c,pt,pi){const t=pt||aPT,i=pi!==undefined?pi:aPi;if(c.freq===t)return t==='M'?MP[i]:QP[i];return null;}
@@ -1123,9 +1151,7 @@ function buildSlackSnapshot(rt) {
     }
   }
 
-  // Urgent pending clients (top 5)
-  const urgentPending = pendingClients.filter(c => c.urgent).slice(0, 5);
-  const urgentLines = urgentPending.map(c => `🔴 ${c.name} — _${c.st}_`);
+  const urgentLines = [];
 
   const blocks = [
     {
@@ -1324,7 +1350,7 @@ function renderDash(){
     '<div class="st"><div class="sv cb">'+pct+'%</div><div class="sl">Done</div><div class="sb"><div class="sf" style="width:'+pct+'%"></div></div></div>'+
     '<div class="st"><div class="sv cg">'+drY+'</div><div class="sl">Data Recv</div></div>'+
     '<div class="st"><div class="sv cr">'+drN+'</div><div class="sl">Data Pending</div></div>'+
-    '<div class="st"><div class="sv cr">'+clients.filter(c=>c.urgent).length+'</div><div class="sl">🔴 Urgent</div></div>';
+    '';
   document.getElementById('dRet').innerHTML=RTS.map((r,ri)=>{let t=0,d=0;clients.forEach(c=>{let p;if(qEnd&&pt==='M'){p=gPcConsolidated(c,MP[pi].mo);}else{p=gPc(c,pt,pi);}if(!p)return;t++;if(isFin(r,gF(c,r,p.id).st))d++;});const rp=t?Math.round(d/t*100):0;const cols=['var(--ac)','var(--ac2)','var(--ac3)'];return'<div class="rtr"><div class="rtn">'+r+'</div><div class="rtb"><div class="rtf" style="width:'+rp+'%;background:'+cols[ri]+'"></div></div><div class="rtp cb">'+rp+'%</div><div style="font-size:9px;color:var(--mu);width:40px">'+d+'/'+t+'</div></div>';}).join('');
   const drP=app?Math.round(drY/app*100):0;
   document.getElementById('dDR').innerHTML='<div style="display:flex;align-items:center;gap:9px;margin-bottom:9px"><div style="font-size:26px;font-weight:900;color:var(--ac2)">'+drP+'%</div><div><div style="font-size:11px;font-weight:600">Data Received</div><div style="font-size:9px;color:var(--mu)">'+drY+' of '+app+'</div></div></div><div class="mb" style="height:5px"><div class="mf" style="width:'+drP+'%"></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px"><div class="psi"><div class="v cg">'+drY+'</div><div class="l">Received</div></div><div class="psi"><div class="v cr">'+drN+'</div><div class="l">Pending</div></div></div>';
@@ -1394,25 +1420,25 @@ function updateTrackerQEBanner(){
   else{banner.style.display='none';}
 }
 function gFilt(){
-  const q=(document.getElementById('SB')?.value||'').toLowerCase(),ff=document.getElementById('FF')?.value||'',fb=document.getElementById('FB')?.value,fd=document.getElementById('FD')?.value||'',fu=document.getElementById('FU')?.value||'';
+  const q=(document.getElementById('SB')?.value||'').toLowerCase(),ff=document.getElementById('FF')?.value||'',fb=document.getElementById('FB')?.value,fd=document.getElementById('FD')?.value||'',fu='';
   const qe=isQEnd(aPT,aPi)&&aPT==='M';
   return clients.filter(c=>{
     if(q&&!c.name.toLowerCase().includes(q)&&!c.gstin.toLowerCase().includes(q))return false;
     if(ff&&c.freq!==ff)return false;
     if(fb!==undefined&&fb!==''){if(c.batch!==(parseInt(fb)||0))return false;}
-    if(fu==='1'&&!c.urgent)return false;
     const p=qe?tGetPeriod(c):gPc(c);if(!qe&&!p)return false;
     if(p&&(selectedStatuses.size>0||fd)){const f=gF(c,aRT,p.id);if(selectedStatuses.size>0&&!selectedStatuses.has(f.st))return false;if(fd&&f.dr!==fd)return false;}
     return true;
-  }).sort((a,b)=>{if(a.urgent&&!b.urgent)return -1;if(!a.urgent&&b.urgent)return 1;return 0;});
+  });
 }
 function renderTracker(){
   updateTrackerQEBanner();
+  const pss=document.getElementById('pageSizeSel');if(pss&&pss.value!==String(PS))pss.value=String(PS);
   const qe=isQEnd(aPT,aPi)&&aPT==='M';
   const filt=gFilt(),tot=filt.length,totPg=Math.max(1,Math.ceil(tot/PS));
   if(tp>totPg)tp=totPg;const page=filt.slice((tp-1)*PS,tp*PS);
   const is3B=aRT==='GSTR-3B';
-  document.getElementById('TH').innerHTML='<tr><th><input type="checkbox" id="SA" onchange="tAll(this)"/></th><th>#</th><th>Client</th><th>Freq</th><th>Batch</th>'+(qe?'<th style="color:var(--ac3)">Period ⚡</th>':'')+'<th>Deadline</th>'+(is3B?'<th>GSTR-2B</th>':'')+'<th>Data Recv</th><th>Recv Time</th><th>'+aRT+' Status</th><th>Actual Worker</th><th>Date Filed</th><th>Remarks</th><th>Actions</th></tr>';
+  document.getElementById('TH').innerHTML='<tr><th><input type="checkbox" id="SA" onchange="tAll(this)"/></th><th>#</th><th>Client</th><th>Freq</th><th>Batch</th>'+(qe?'<th style="color:var(--ac3)">Period ⚡</th>':'')+'<th>Deadline</th>'+(is3B?'<th>GSTR-2B</th>':'')+'<th>Data Recv</th><th>Recv Time</th><th>'+aRT+' Status</th><th>Work Done By</th><th>Date Filed</th><th>Remarks</th><th>Actions</th></tr>';
   if(!page.length){document.getElementById('TB').innerHTML='';document.getElementById('TE').style.display='block';}
   else{
     document.getElementById('TE').style.display='none';
@@ -1440,10 +1466,13 @@ function renderTracker(){
         const awAllNames=[...persons.filter(x=>x)];
         const awDid='dpaw'+c.id+aRT.replace(/\W/g,'')+p.id;
         const awOpts='<div class="so" onclick="setAW(\''+c.id+'\',\''+aRT+'\',\''+p.id+'\',\'\')" data-v="">— None —</div>'+awAllNames.map(n=>'<div class="so" onclick="setAW(\''+c.id+'\',\''+aRT+'\',\''+p.id+'\',\''+n.replace(/'/g,"\\'")+'\')" data-v="'+n.replace(/"/g,'&quot;')+'">'+n+'</div>').join('');
-        const awBadge=awApproved?'<span style="font-size:8px;background:rgba(52,211,153,.15);color:var(--ac2);border:1px solid rgba(52,211,153,.3);border-radius:3px;padding:1px 4px;margin-left:3px" title="Approved by '+awApproved+'">✓</span>':'<span style="font-size:8px;background:rgba(245,158,11,.15);color:var(--ac3);border:1px solid rgba(245,158,11,.3);border-radius:3px;padding:1px 4px;margin-left:3px" title="Pending manager approval">⏳</span>';
+        // Badge: green tick if approved, amber clock if pending (set but not yet manager-approved)
+        const awBadge=awApproved
+          ?'<span style="font-size:8px;background:rgba(52,211,153,.15);color:var(--ac2);border:1px solid rgba(52,211,153,.3);border-radius:3px;padding:1px 4px;margin-left:3px" title="Approved by '+awApproved+'">✓</span>'
+          :'<span style="font-size:8px;background:rgba(245,158,11,.15);color:var(--ac3);border:1px solid rgba(245,158,11,.3);border-radius:3px;padding:1px 4px;margin-left:3px" title="Pending manager approval — not yet verified">⏳ Pending</span>';
         awC=awVal
-          ? '<div class="sw"><span style="display:inline-flex;align-items:center;gap:2px;font-size:12px;font-weight:600;cursor:pointer;color:var(--tx)" onclick="togDrop(\''+awDid+'\',event)">'+awVal+awBadge+'</span><div class="sdrop" id="'+awDid+'">'+awOpts+'</div></div>'
-          : '<div class="sw"><span style="font-size:11px;color:var(--mu);cursor:pointer;border:1px dashed var(--bd);border-radius:4px;padding:2px 6px" onclick="togDrop(\''+awDid+'\',event)">Set worker</span><div class="sdrop" id="'+awDid+'">'+awOpts+'</div></div>';
+          ?'<div class="sw"><span style="display:inline-flex;align-items:center;gap:2px;font-size:12px;font-weight:600;cursor:pointer;color:'+(awApproved?'var(--tx)':'var(--ac3)')+'" onclick="togDrop(\''+awDid+'\',event)">'+awVal+awBadge+'</span><div class="sdrop" id="'+awDid+'">'+awOpts+'</div></div>'
+          :'<div class="sw"><span style="font-size:11px;color:var(--mu);cursor:pointer;border:1px dashed var(--bd);border-radius:4px;padding:2px 6px" onclick="togDrop(\''+awDid+'\',event)">Set worker</span><div class="sdrop" id="'+awDid+'">'+awOpts+'</div></div>';
         const remInfo = getEffectiveRemark(c, aRT, p.id);
         const remVal = (filingMap[c.id+'|'+aRT+'|'+p.id]?.rem || '').replace(/"/g,'&quot;');
         const remPlaceholder = remInfo.fromPeriod ? 'From '+remInfo.fromPeriod+' (editable)' : 'Remark...';
@@ -1453,8 +1482,8 @@ function renderTracker(){
         remC='<div style="position:relative"><input class="ri" '+remTitle+' value="'+remDisplay+'" placeholder="'+remPlaceholder+'" style="'+remStyle+'" onfocus="remFocus(this,\''+c.id+'\',\''+aRT+'\',\''+p.id+'\')" onblur="remBlur(this,\''+c.id+'\',\''+aRT+'\',\''+p.id+'\')" onchange="setRem(\''+c.id+'\',\''+aRT+'\',\''+p.id+'\',this.value)"/>'+(remInfo.fromPeriod?'<span style="position:absolute;top:-1px;right:2px;font-size:8px;color:var(--ac3);pointer-events:none" title="Carried from '+remInfo.fromPeriod+'">↩</span>':'')+'</div>';
         actC='<button class="btn bo" style="font-size:9px;padding:3px 7px" onclick="openHist(\''+c.id+'\')" title="History">📋</button><button class="btn bo" style="font-size:9px;padding:3px 7px;margin-left:3px" onclick="openStmt(\''+c.id+'\')" title="Statement">🖨</button>';
       }
-      const rowBg=c.urgent?'style="background:rgba(248,113,113,.03)"':qe&&c.freq==='Q'?'style="background:rgba(52,211,153,.025)"':'';
-      return '<tr id="tr'+c.id+'" data-cid="'+c.id+'" '+rowBg+'><td><input type="checkbox" '+(sel.has(c.id)?'checked':'')+' onchange="togSel(\''+c.id+'\',this)"/></td><td class="rn">'+gi+'</td><td><div style="display:flex;align-items:center;gap:5px"><span class="urg '+(c.urgent?'on':'off')+'" onclick="togUrg(\''+c.id+'\')" title="Toggle urgent">🔴</span><div><div class="cn">'+c.name+'</div><div class="cg2">'+c.gstin+'</div></div></div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Mon':'Qtr')+'</span></td><td>'+bL+'</td>'+periodCell+'<td>'+dlC+'</td>'+(is3B?'<td>'+g2bC+'</td>':'')+'<td>'+drC+'</td><td>'+tsC+'</td><td>'+stC+'</td><td>'+awC+'</td><td>'+dofC+'</td><td>'+remC+'</td><td>'+actC+'</td></tr>';
+      const rowBg=qe&&c.freq==='Q'?'style="background:rgba(52,211,153,.025)"':'';
+      return '<tr id="tr'+c.id+'" data-cid="'+c.id+'" '+rowBg+'><td><input type="checkbox" '+(sel.has(c.id)?'checked':'')+' onchange="togSel(\''+c.id+'\',this)"/></td><td class="rn">'+gi+'</td><td><div><div class="cn">'+c.name+'</div><div class="cg2">'+c.gstin+'</div></div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Mon':'Qtr')+'</span></td><td>'+bL+'</td>'+periodCell+'<td>'+dlC+'</td>'+(is3B?'<td>'+g2bC+'</td>':'')+'<td>'+drC+'</td><td>'+tsC+'</td><td>'+stC+'</td><td>'+awC+'</td><td>'+dofC+'</td><td>'+remC+'</td><td>'+actC+'</td></tr>';
     }).join('');
     kbPageRows=page;applyKBFocus(page);
   }
@@ -1474,19 +1503,13 @@ document.addEventListener('keydown',function(e){
   else if(e.key==='ArrowUp'){e.preventDefault();kbFocusIdx=Math.max(kbFocusIdx-1,0);}
   else if(e.key===' '&&kbFocusIdx>=0){e.preventDefault();const c=page[kbFocusIdx];const p=isQEnd(aPT,aPi)&&aPT==='M'?tGetPeriod(c):gPc(c);if(p)togDR(c.id,aRT,p.id);}
   else if(e.key==='Enter'&&kbFocusIdx>=0){e.preventDefault();const c=page[kbFocusIdx];const p=isQEnd(aPT,aPi)&&aPT==='M'?tGetPeriod(c):gPc(c);if(!p)return;const did2='dp'+c.id+aRT.replace(/\W/g,'')+p.id;const dropEl=document.getElementById(did2);const was=dropEl?.classList.contains('open');closeAllDrops();if(!was&&dropEl){const tr=document.getElementById('tr'+c.id);const sp=tr?tr.querySelector('.sp'):null;if(sp){const rect=sp.getBoundingClientRect();const dropH=SM[aRT].length*38;const spaceBelow=window.innerHeight-rect.bottom;let top=spaceBelow<dropH+10?rect.top-dropH-4:rect.bottom+3;let left=Math.min(rect.left,window.innerWidth-210);dropEl.style.top=top+'px';dropEl.style.left=left+'px';}dropEl.classList.add('open');}}
-  else if(e.key==='u'||e.key==='U'){if(kbFocusIdx>=0){e.preventDefault();togUrg(page[kbFocusIdx].id);}}
   else if(e.key==='h'||e.key==='H'){if(kbFocusIdx>=0){e.preventDefault();openHist(page[kbFocusIdx].id);}}
   else if(e.key==='p'||e.key==='P'){if(kbFocusIdx>=0){e.preventDefault();openStmt(page[kbFocusIdx].id);}}
   applyKBFocus(page);
 });
 
 // ── ACTIONS ──
-async function togUrg(cid){
-  const c=clients.find(x=>x.id===cid);if(!c)return;
-  c.urgent=!c.urgent;addHistory(c,c.urgent?'Marked as 🔴 Urgent':'Removed urgent flag');
-  renderTracker();
-  await spSaveClient(c,false).catch(e=>showToast('Error: '+e.message,'var(--ac4)'));
-}
+
 async function togDR(cid,rt,pid){
   const c=clients.find(x=>x.id===cid);if(!c)return;
   const key=c.id+'|'+rt+'|'+pid;
@@ -1586,42 +1609,77 @@ async function setRem(cid,rt,pid,v){
   await spSaveFiling(c.id,rt,pid,filingMap[key]).catch(()=>{});
 }
 
-// ── ACTUAL WORKER ──
+// ── WORK DONE BY ──
+// Helper: check if current user is one of the configured managers (by display name or email)
+function currentUserIsManager(){
+  if(!currentUser) return false;
+  const userName=(currentUser.name||currentUser.username||'').toLowerCase();
+  return managerNames.some(m=>m&&m.toLowerCase()===userName);
+}
+
 // Called when a worker name is selected from the dropdown
 function setAW(cid,rt,pid,name){
   closeAllDrops();
-  // Open approval modal for manager sign-off
   document.getElementById('awClientId').value=cid;
   document.getElementById('awRT').value=rt;
   document.getElementById('awPid').value=pid;
   document.getElementById('awWorkerName').value=name;
   document.getElementById('awWorkerLabel').textContent=name||'— None (clear) —';
-  // populate manager dropdown
-  const sel=document.getElementById('awManagerSel');
-  sel.innerHTML='<option value="">— Select Manager —</option>'+managerNames.filter(x=>x).map(m=>'<option value="'+m.replace(/"/g,'&quot;')+'">'+m+'</option>').join('');
-  document.getElementById('awPassInput').value='';
   document.getElementById('awErr').textContent='';
+
+  const isManager=currentUserIsManager();
+  const userName=currentUser?.name||currentUser?.username||'';
+
+  // Show/hide sections based on whether current user is a manager
+  document.getElementById('awManagerSection').style.display=isManager?'block':'none';
+  document.getElementById('awNonManagerSection').style.display=isManager?'none':'block';
+  document.getElementById('awCurrentUserLabel').textContent='Signed in as: '+userName;
+
+  if(!isManager){
+    // populate manager dropdown for non-managers
+    const msel=document.getElementById('awManagerSel');
+    msel.innerHTML='<option value="">— Select Manager to Notify —</option>'+managerNames.filter(x=>x).map(m=>'<option value="'+m.replace(/"/g,'&quot;')+'">'+m+'</option>').join('');
+  }
+
+  // Update save button label
+  document.getElementById('awSaveBtn').textContent=isManager
+    ? (name ? '✓ Approve & Save' : '✓ Clear & Save')
+    : (name ? '⏳ Save (Pending Approval)' : 'Clear');
+
   document.getElementById('awMo').classList.add('on');
-  setTimeout(()=>document.getElementById('awManagerSel').focus(),100);
 }
+
 async function confirmAW(){
   const cid=document.getElementById('awClientId').value;
   const rt=document.getElementById('awRT').value;
   const pid=document.getElementById('awPid').value;
   const workerName=document.getElementById('awWorkerName').value;
-  const manager=document.getElementById('awManagerSel').value;
-  const pass=document.getElementById('awPassInput').value;
-  if(!manager){document.getElementById('awErr').textContent='Please select a manager.';return;}
-  if(pass!==settingsPassword){document.getElementById('awErr').textContent='Incorrect password.';document.getElementById('awPassInput').value='';document.getElementById('awPassInput').focus();return;}
+  const isManager=currentUserIsManager();
+  const userName=currentUser?.name||currentUser?.username||'Unknown';
+
+  let approvedBy='';
+  if(isManager){
+    // Manager is approving using their own MS login identity
+    approvedBy=workerName?userName:'';
+  } else {
+    // Non-manager: save as pending (no approval), just record who selected
+    const msel=document.getElementById('awManagerSel');
+    const notifyManager=msel?msel.value:'';
+    approvedBy='';  // blank = pending approval
+    // Store who submitted it in the history
+    const c2=clients.find(x=>x.id===cid);
+    if(c2) addHistory(c2,'Work Done By for '+rt+' '+pid+' set to "'+(workerName||'None')+'" by '+userName+' — pending manager approval'+(notifyManager?' ('+notifyManager+' to approve)':''));
+  }
+
   const c=clients.find(x=>x.id===cid);if(!c){closeMo();return;}
   const key=c.id+'|'+rt+'|'+pid;
   if(!filingMap[key])filingMap[key]={st:SM[rt][0],dr:'No',drTs:'',dof:'',rem:'',aw:'',awApproved:''};
   filingMap[key].aw=workerName;
-  filingMap[key].awApproved=workerName?manager:'';
-  addHistory(c,'Actual worker for '+rt+' '+pid+' set to "'+(workerName||'None')+'" (approved by '+manager+')');
+  filingMap[key].awApproved=approvedBy;
+  if(isManager && workerName) addHistory(c,'Work Done By for '+rt+' '+pid+' set to "'+workerName+'" — approved by '+userName+' (MS login)');
   closeMo();renderTracker();
   await Promise.all([spSaveFiling(c.id,rt,pid,filingMap[key]),spSaveClient(c,false)]).catch(e=>showToast('Save error: '+e.message,'var(--ac4)'));
-  showToast('✓ Actual worker saved & approved by '+manager);
+  showToast(isManager?'✓ Saved & approved as '+userName:'⏳ Saved — pending manager approval');
 }
 function togSel(id,cb){if(cb.checked)sel.add(id);else sel.delete(id);renderBulk();}
 function tAll(cb){gFilt().slice((tp-1)*PS,tp*PS).forEach(c=>{if(cb.checked)sel.add(c.id);else sel.delete(c.id);});renderBulk();renderTracker();}
@@ -1643,7 +1701,7 @@ async function applyBulk(){
   sel.clear();closeMo();renderTracker();
   await Promise.all(promises).catch(e=>showToast('Bulk save error: '+e.message,'var(--ac4)'));
 }
-function clearFilters(){['SB','FF','FB','FS','FD','FU'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});selectedStatuses.clear();renderStatusFilterDropdown();renderTracker();}
+function clearFilters(){['SB','FF','FB','FS','FD'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});selectedStatuses.clear();renderStatusFilterDropdown();renderTracker();}
 
 // ── HISTORY / STATEMENT ──
 function openHist(cid){const c=clients.find(x=>x.id===cid);if(!c)return;document.getElementById('histName').textContent=c.name;document.getElementById('histSub').textContent=c.gstin||'';const log=c.history||[];document.getElementById('histLog').innerHTML=log.length?log.map(h=>'<div class="hlog-row"><div class="hlog-ts">'+h.ts+'</div><div style="flex:1;font-size:10px">'+h.msg+'</div><div class="hlog-who">'+(h.who||'')+'</div></div>').join(''):'<div style="color:var(--mu);font-size:11px;padding:10px">No activity yet.</div>';document.getElementById('histMo').classList.add('on');}
@@ -1666,7 +1724,7 @@ function renderClients(){
   if(cp>totPg)cp=totPg;const page=filt.slice((cp-1)*PS,cp*PS);
   document.getElementById('cCt').textContent=clients.length+' total · '+tot+' shown';
   if(!page.length){document.getElementById('CTB').innerHTML='';document.getElementById('CE').style.display='block';}
-  else{document.getElementById('CE').style.display='none';document.getElementById('CTB').innerHTML=page.map((c,i)=>{const gi=(cp-1)*PS+i+1;return'<tr><td><input type="checkbox" '+(cSel.has(c.id)?'checked':'')+' onchange="togCSel(\''+c.id+'\',this)"/></td><td class="rn">'+gi+'</td><td><div style="display:flex;align-items:center;gap:5px">'+(c.urgent?'<span style="font-size:10px">🔴</span>':'')+'<div class="cn">'+c.name+'</div></div></td><td><div class="cg2">'+c.gstin+'</div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Monthly':'Quarterly')+'</span></td><td>'+(c.batch>0?'<span class="bb">Batch '+c.batch+'</span>':'<span style="color:var(--mu2);font-size:9px">—</span>')+'</td><td style="font-size:10px;color:var(--mu)">'+(c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'—')+'</td><td><button class="btn bo" style="margin-right:4px" onclick="openEdit(\''+c.id+'\')">Edit</button><button class="btn bo" style="margin-right:4px" onclick="openStmt(\''+c.id+'\')">🖨</button><button class="btn bdd" onclick="openDel(\''+c.id+'\')">Del</button></td></tr>';}).join('');}
+  else{document.getElementById('CE').style.display='none';document.getElementById('CTB').innerHTML=page.map((c,i)=>{const gi=(cp-1)*PS+i+1;return'<tr><td><input type="checkbox" '+(cSel.has(c.id)?'checked':'')+' onchange="togCSel(\''+c.id+'\',this)"/></td><td class="rn">'+gi+'</td><td><div class="cn">'+c.name+'</div></td><td><div class="cg2">'+c.gstin+'</div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Monthly':'Quarterly')+'</span></td><td>'+(c.batch>0?'<span class="bb">Batch '+c.batch+'</span>':'<span style="color:var(--mu2);font-size:9px">—</span>')+'</td><td style="font-size:10px;color:var(--mu)">'+(c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'—')+'</td><td><button class="btn bo" style="margin-right:4px" onclick="openEdit(\''+c.id+'\')">Edit</button><button class="btn bo" style="margin-right:4px" onclick="openStmt(\''+c.id+'\')">🖨</button><button class="btn bdd" onclick="openDel(\''+c.id+'\')">Del</button></td></tr>';}).join('');}
   const csa=document.getElementById('CSA');if(csa){const pi=page.map(c=>c.id);csa.checked=pi.length>0&&pi.every(id=>cSel.has(id));csa.indeterminate=pi.some(id=>cSel.has(id))&&!csa.checked;}
   renderCBulk();renderPgn(tot,totPg,'c');
 }
@@ -1780,13 +1838,17 @@ function dlTemplate(){const csv='"Client Name","GSTIN","Frequency","Batch"\n"Exa
 // ══════════════════════════════════════════
 //  EXPORTS
 // ══════════════════════════════════════════
-function exportCSV(){const p=aP();const rows=[['#','Client','GSTIN','Freq','Batch','Responsible','Urgent','Data Recv','Recv Time',aRT+' Status','Date Filed','Remarks']];clients.forEach((c,i)=>{const cp2=gPc(c);const f=cp2?gF(c,aRT,cp2.id):{st:'N/A',dof:'',dr:'N/A',drTs:'',rem:''};rows.push([i+1,c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch||'Unassigned',c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'',c.urgent?'Yes':'No',f.dr,f.drTs||'',f.st,f.dof||'',f.rem||'']);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Tracker_'+p.l+'.csv';a.click();}
-function saveMonthExcel(){const p=aP();const periodName=(aPT==='M'?MP[aPi].l:QP[aPi].l)+' '+FY_LABEL;const headers=['#','Client Name','GSTIN','Frequency','Batch','Responsible Person','Urgent','Data Received','Data Recv Timestamp','GSTR-1 Status','GSTR-1 Date Filed','GSTR-1 Remarks','GSTR-3B Status','GSTR-3B Date Filed','GSTR-3B Remarks','GSTR-2B Status','GSTR-2B Date Filed','GSTR-2B Remarks'];const rows=[headers];clients.forEach((c,i)=>{const cp2=gPc(c);const row=[i+1,c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch||'Unassigned',c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'Not Assigned',c.urgent?'Yes':'No',cp2?(gF(c,'GSTR-1',cp2.id).dr||'No'):'N/A',cp2?(gF(c,'GSTR-1',cp2.id).drTs||''):''];RTS.forEach(rt=>{if(cp2){const f=gF(c,rt,cp2.id);row.push(f.st||'',f.dof||'',f.rem||'');}else{row.push('N/A','','');}});rows.push(row);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Monthly_Save_'+periodName.replace(/\s/g,'_')+'.csv';a.click();const btn=event.target;const orig=btn.innerHTML;btn.innerHTML='✓ Saved!';btn.style.background='var(--ac2)';setTimeout(()=>{btn.innerHTML=orig;btn.style.background='';},1800);}
-function exportMonthReport(){const p=aP();const pLabel=(aPT==='M'?p.l:p.l)+' '+FY_LABEL;const lines=['GST FILING COMPLETION REPORT','Period: '+pLabel,'Generated: '+new Date().toLocaleDateString('en-IN'),''];RTS.forEach(rt=>{let filed=0,tot=0;clients.forEach(c=>{const pp=gPc(c,aPT,aPi);if(!pp)return;tot++;if(isFin(rt,gF(c,rt,pp.id).st))filed++;});lines.push(rt+': '+filed+'/'+tot+' filed ('+(tot?Math.round(filed/tot*100):0)+'%)');});lines.push('','── PENDING (GSTR-1 not filed) ──');clients.forEach(c=>{const pp=gPc(c,aPT,aPi);if(!pp)return;const f=gF(c,'GSTR-1',pp.id);if(!isFin('GSTR-1',f.st))lines.push(c.name+' | '+c.gstin+' | '+f.st+(c.urgent?' 🔴':''));});const blob=new Blob([lines.join('\n')],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='GST_Report_'+pLabel.replace(/\s/g,'_')+'.txt';a.click();showToast('📊 Report exported!');}
+function exportCSV(){const p=aP();const rows=[['#','Client','GSTIN','Freq','Batch','Responsible','Data Recv','Recv Time',aRT+' Status','Date Filed','Remarks']];clients.forEach((c,i)=>{const cp2=gPc(c);const f=cp2?gF(c,aRT,cp2.id):{st:'N/A',dof:'',dr:'N/A',drTs:'',rem:''};rows.push([i+1,c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch||'Unassigned',c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'',f.dr,f.drTs||'',f.st,f.dof||'',f.rem||'']);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Tracker_'+p.l+'.csv';a.click();}
+function saveMonthExcel(){const p=aP();const periodName=(aPT==='M'?MP[aPi].l:QP[aPi].l)+' '+FY_LABEL;const headers=['#','Client Name','GSTIN','Frequency','Batch','Responsible Person','Data Received','Data Recv Timestamp','GSTR-1 Status','GSTR-1 Date Filed','GSTR-1 Remarks','GSTR-3B Status','GSTR-3B Date Filed','GSTR-3B Remarks','GSTR-2B Status','GSTR-2B Date Filed','GSTR-2B Remarks'];const rows=[headers];clients.forEach((c,i)=>{const cp2=gPc(c);const row=[i+1,c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch||'Unassigned',c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'Not Assigned',cp2?(gF(c,'GSTR-1',cp2.id).dr||'No'):'N/A',cp2?(gF(c,'GSTR-1',cp2.id).drTs||''):''];RTS.forEach(rt=>{if(cp2){const f=gF(c,rt,cp2.id);row.push(f.st||'',f.dof||'',f.rem||'');}else{row.push('N/A','','');}});rows.push(row);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Monthly_Save_'+periodName.replace(/\s/g,'_')+'.csv';a.click();const btn=event.target;const orig=btn.innerHTML;btn.innerHTML='✓ Saved!';btn.style.background='var(--ac2)';setTimeout(()=>{btn.innerHTML=orig;btn.style.background='';},1800);}
+function exportMonthReport(){const p=aP();const pLabel=(aPT==='M'?p.l:p.l)+' '+FY_LABEL;const lines=['GST FILING COMPLETION REPORT','Period: '+pLabel,'Generated: '+new Date().toLocaleDateString('en-IN'),''];RTS.forEach(rt=>{let filed=0,tot=0;clients.forEach(c=>{const pp=gPc(c,aPT,aPi);if(!pp)return;tot++;if(isFin(rt,gF(c,rt,pp.id).st))filed++;});lines.push(rt+': '+filed+'/'+tot+' filed ('+(tot?Math.round(filed/tot*100):0)+'%)');});lines.push('','── PENDING (GSTR-1 not filed) ──');clients.forEach(c=>{const pp=gPc(c,aPT,aPi);if(!pp)return;const f=gF(c,'GSTR-1',pp.id);if(!isFin('GSTR-1',f.st))lines.push(c.name+' | '+c.gstin+' | '+f.st);});const blob=new Blob([lines.join('\n')],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='GST_Report_'+pLabel.replace(/\s/g,'_')+'.txt';a.click();showToast('📊 Report exported!');}
 
 // ── PAGINATION ──
 function renderPgn(tot,totPg,w){const el=document.getElementById(w==='t'?'TPG':'CPG'),cpn=w==='t'?tp:cp;if(totPg<=1){el.innerHTML='';return;}let h='<span class="pgi">'+cpn+'/'+totPg+' · '+tot+'</span>';h+='<button class="pgb" onclick="gp(1,\''+w+'\')" '+(cpn===1?'disabled':'')+'>«</button>';h+='<button class="pgb" onclick="gp('+(cpn-1)+',\''+w+'\')" '+(cpn===1?'disabled':'')+'>‹</button>';for(let pp=Math.max(1,cpn-2);pp<=Math.min(totPg,cpn+2);pp++)h+='<button class="pgb '+(pp===cpn?'cur':'')+'" onclick="gp('+pp+',\''+w+'\')">'+pp+'</button>';h+='<button class="pgb" onclick="gp('+(cpn+1)+',\''+w+'\')" '+(cpn===totPg?'disabled':'')+'>›</button>';h+='<button class="pgb" onclick="gp('+totPg+',\''+w+'\')" '+(cpn===totPg?'disabled':'')+'>»</button>';el.innerHTML=h;}
 function gp(p,w){if(w==='t'){tp=p;kbFocusIdx=-1;}else cp=p;w==='t'?renderTracker():renderClients();}
+function changePageSize(v){PS=parseInt(v)||15;tp=1;cp=1;renderTracker();renderClients();
+  // keep selector in sync
+  const sel=document.getElementById('pageSizeSel');if(sel)sel.value=String(PS);
+}
 
 // ── TOAST ──
 function showToast(msg,col){let t=document.getElementById('toast');if(!t){t=document.createElement('div');t.id='toast';t.style.cssText='position:fixed;bottom:22px;left:50%;transform:translateX(-50%);color:#090d13;font-weight:800;font-size:12px;padding:8px 18px;border-radius:20px;z-index:400;box-shadow:0 4px 16px rgba(0,0,0,.4);transition:opacity .3s';document.body.appendChild(t);}t.textContent=msg;t.style.background=col||'var(--ac2)';t.style.opacity='1';clearTimeout(t._timer);t._timer=setTimeout(()=>t.style.opacity='0',2500);}
@@ -1808,6 +1870,7 @@ function toggleTheme(){
 (function(){try{if(localStorage.getItem('gst_theme')==='dark'){document.body.classList.add('dark');}}catch(e){}})();
 
 document.addEventListener('DOMContentLoaded', function() {
+  const pss=document.getElementById('pageSizeSel');if(pss)pss.value='15';
   document.getElementById('fyLabel').textContent = FY_LABEL + ' ▾';
   setTimeout(function() {
     if (typeof msal !== 'undefined') tryAutoSignIn();
