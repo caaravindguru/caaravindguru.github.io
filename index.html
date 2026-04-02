@@ -982,13 +982,29 @@ function buildFYData(startYear) {
   return {MP, QP, y1, y2, label:'FY '+y1+'-'+y2s};
 }
 function detectCurrentFY() {
-  const now = new Date(), mo = now.getMonth();
+  const now = new Date(), mo = now.getMonth(), day = now.getDate();
+  // Indian FY: April–March.
+  // During April 1–13, the dashboard default is still MARCH of the prior FY
+  // (GSTR-1 for March is due 11th Apr; GSTR-3B switches on 14th Apr).
+  // Keep the tracker in FY 2025-26 for that period so Mar 26 shows, not Mar 27.
+  if (mo === 3 && day <= 13) return now.getFullYear() - 1;
   return mo >= 3 ? now.getFullYear() : now.getFullYear() - 1;
 }
 let currentFYStart = detectCurrentFY();
 let {MP, QP, y1: FY_START, y2: FY_END, label: FY_LABEL} = buildFYData(currentFYStart);
 
-function getDefaultPeriod(){const now=new Date();let mo=now.getMonth()-1;if(mo<0)mo=11;const idx=MP.findIndex(p=>p.mo===mo);return idx>=0?idx:0;}
+function getDefaultPeriod(){
+  const now=new Date();
+  const jsMonth=now.getMonth(); // 0=Jan ... 3=Apr ... 11=Dec
+  // Previous calendar month
+  let prevJsMo=jsMonth-1;
+  // If we are in April (jsMonth===3), previous month is March (2),
+  // which belongs to the PREVIOUS FY. MP for the current FY starts at Apr,
+  // so March (mo===2) is at index 11 of the current FY — correctly accessible.
+  if(prevJsMo<0) prevJsMo=11; // January → wrap to December of same FY array
+  const idx=MP.findIndex(p=>p.mo===prevJsMo);
+  return idx>=0?idx:0;
+}
 function getDefaultRT(){const d=new Date().getDate();return d<=13?'GSTR-1':'GSTR-3B';}
 let aRT=getDefaultRT(),aPT='M',aPi=getDefaultPeriod();
 let sel=new Set(),cSel=new Set(),eid=null,did=null,tp=1,cp=1,kbFocusIdx=-1,kbPageRows=[];
@@ -1001,9 +1017,33 @@ function isFin(rt,st){return st===SM[rt][SM[rt].length-1];}
 let periodAllocMap = {}; // key: periodId -> ['','','','','']
 
 function pNameForPeriod(b, pid) {
+  // 1. Check direct period-specific allocation first
   const alloc = periodAllocMap[pid];
   if (alloc && alloc[b-1]) return alloc[b-1];
-  return '';
+  // 2. If pid is a monthly period, also check if the quarter-end month maps to a quarterly period
+  //    (quarterly filers shown in QE-month view use their QP period id, e.g. "Q4")
+  //    so check the corresponding QP period allocation too.
+  const mpEntry = MP.find(p => p.id === pid);
+  if (mpEntry) {
+    const qp = QP.find(q => q.months.includes(mpEntry.mo));
+    if (qp) {
+      const qAlloc = periodAllocMap[qp.id];
+      if (qAlloc && qAlloc[b-1]) return qAlloc[b-1];
+    }
+  }
+  // 3. Check if pid is a quarterly period — look for any monthly period in that quarter that has allocation
+  const qEntry = QP.find(p => p.id === pid);
+  if (qEntry) {
+    for (const mo of qEntry.months) {
+      const mEntry = MP.find(p => p.mo === mo);
+      if (mEntry) {
+        const mAlloc = periodAllocMap[mEntry.id];
+        if (mAlloc && mAlloc[b-1]) return mAlloc[b-1];
+      }
+    }
+  }
+  // 4. Fall back to global persons array (Settings)
+  return persons[b-1] || '';
 }
 function pName(b){return b>0&&persons[b-1]?persons[b-1]:'Person '+b;}
 
@@ -1032,6 +1072,14 @@ function openAllocMo() {
   for (let i = 0; i < 5; i++) {
     h += '<div class="per" style="margin-bottom:8px"><span class="pix">B'+(i+1)+'</span><input class="fi" id="ap'+i+'" placeholder="Person name for Batch '+(i+1)+'..." value="'+(alloc[i]||'')+'"/></div>';
   }
+  // Show note if this is a QE month — allocation will apply to quarterly filers too
+  if (aPT === 'M') {
+    const mo = MP[aPi]?.mo;
+    const qp = QP.find(q => q.months.includes(mo));
+    if (qp) {
+      h += '<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:6px;padding:8px 12px;font-size:10px;color:var(--ac3);margin-top:8px">⚡ Quarter-end month — allocation will also apply to <strong>'+qp.l+'</strong> (QRMP filers)</div>';
+    }
+  }
   document.getElementById('allocFields').innerHTML = h;
   document.getElementById('allocMo').classList.add('on');
   setTimeout(() => document.getElementById('ap0').focus(), 100);
@@ -1041,10 +1089,22 @@ async function saveAlloc() {
   const alloc = [];
   for (let i = 0; i < 5; i++) { const e = document.getElementById('ap'+i); alloc.push(e ? e.value.trim() : ''); }
   periodAllocMap[p.id] = alloc;
+
+  // If this is a monthly period at a quarter-end month, also save under the quarterly period id
+  // so quarterly filers (shown in QE-consolidated view) pick up the same allocation.
+  const saves = [spSaveSettings('Alloc_'+p.id, alloc).catch(e => showToast(e.message, 'var(--ac4)'))];
+  if (aPT === 'M') {
+    const mo = MP[aPi]?.mo;
+    const qp = QP.find(q => q.months.includes(mo));
+    if (qp) {
+      periodAllocMap[qp.id] = alloc;
+      saves.push(spSaveSettings('Alloc_'+qp.id, alloc).catch(e => showToast(e.message, 'var(--ac4)')));
+    }
+  }
+  await Promise.all(saves);
   closeMo();
   renderTracker();
-  await spSaveSettings('Alloc_'+p.id, alloc).catch(e => showToast(e.message, 'var(--ac4)'));
-  showToast('✓ Allocation saved for '+p.l);
+  showToast('✓ Allocation saved for '+p.l+(aPT==='M'&&QP.find(q=>q.months.includes(MP[aPi]?.mo))?' (+ quarterly filers)':''));
 }
 function isQEnd(pt,pi){if(pt==='M'){const mo=MP[pi]?.mo;return QE_MONTHS.includes(mo);}return true;}
 function tGetPeriod(c){if(isQEnd(aPT,aPi)&&aPT==='M'){return gPcConsolidated(c,MP[aPi].mo);}return gPc(c);}
