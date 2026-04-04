@@ -4,7 +4,6 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>GST Tracker-PANDA</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>"/>
 
 <!-- ════════════════════════════════════════════════════════
   CONFIGURATION — Edit these 4 values before uploading
@@ -211,49 +210,7 @@ tr:last-child td{border-bottom:none}tr:hover td{background:rgba(91,141,240,.03)}
 .saving.on{display:flex}
 input[type=checkbox]{accent-color:var(--ac);width:12px;height:12px;cursor:pointer}
 ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:var(--s1)}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
-/* ── MOBILE RESPONSIVE ── */
-@media(max-width:650px){
-  body{font-size:14px}
-  /* Nav: stack brand + tabs on separate lines, keep right section tight */
-  .nav{padding:0 10px;gap:0;flex-direction:column;align-items:flex-start}
-  .nb{font-size:13px;padding:10px 0;border-right:none;border-bottom:1px solid var(--bd);width:100%;display:flex;align-items:center;justify-content:space-between}
-  .nav-tabs{display:flex;width:100%}
-  .nt{font-size:13px;padding:10px 10px;flex:1;text-align:center}
-  .nr{margin-left:0;width:100%;padding:6px 0;gap:4px;border-top:1px solid var(--bd);justify-content:flex-end}
-  .fy{font-size:8px;padding:2px 6px}
-  .user-pill{font-size:9px;padding:2px 8px 2px 3px}
-  /* Pages */
-  .page{padding:10px 10px 60px}
-  .ph{font-size:20px}
-  .ps{font-size:13px;margin-bottom:10px}
-  /* Grids */
-  .dg,.sg{grid-template-columns:1fr}
-  .dw{grid-column:1/-1}
-  /* Per-person cards: 1 col on mobile */
-  .pg2{grid-template-columns:1fr 1fr}
-  /* Toolbar */
-  .toolbar{flex-direction:column;align-items:stretch}
-  .si{width:100%}
-  .btn{font-size:13px;padding:7px 12px}
-  /* Table: allow horizontal scroll */
-  .tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
-  /* Modals */
-  .md{width:96%;padding:16px;margin:8px}
-  /* Stat cards: shrink font */
-  .sv{font-size:18px}
-  /* Period selector */
-  .pts{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}
-  /* Sync bar */
-  .sync-bar{font-size:8px;padding:3px 10px}
-  /* Login card */
-  .login-card{padding:28px 20px}
-  /* QE banner */
-  .qe-banner{font-size:11px}
-  /* Page size selector */
-  #pageSizeSel{font-size:12px}
-  /* Bulk action bars */
-  .bulk,.cbulk{font-size:12px;padding:6px 10px}
-}
+@media(max-width:650px){.dg,.sg{grid-template-columns:1fr}.toolbar{flex-direction:column}.si{width:100%}}
 </style>
 <script>
 /*! @azure/msal-browser v2.38.3 2023-10-27 */
@@ -356,19 +313,17 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
 <!-- ── MAIN NAV ── -->
 <nav class="nav" id="mainNav" style="display:none">
   <div class="nb">GST <span>Tracker</span> <span class="nb-sp">SharePoint</span></div>
-  <div class="nav-tabs">
-    <div class="nt on" onclick="showPage('dashboard')">Dashboard</div>
-    <div class="nt" onclick="showPage('tracker')">Tracker</div>
-    <div class="nt" onclick="showPage('clients')">Clients</div>
-    <div class="nt" onclick="promptSettingsPassword()">Settings</div>
-  </div>
+  <div class="nt on" onclick="showPage('dashboard')">Dashboard</div>
+  <div class="nt" onclick="showPage('tracker')">Tracker</div>
+  <div class="nt" onclick="showPage('clients')">Clients</div>
+  <div class="nt" onclick="promptSettingsPassword()">Settings</div>
   <div class="nr">
     <span class="fy" id="fyLabel" style="cursor:pointer" onclick="openFYPicker()" title="Click to change Financial Year">FY 2025-26 ▾</span>
     <button class="btn bo" id="themeToggle" onclick="toggleTheme()" title="Toggle dark/light mode" style="font-size:15px;padding:4px 10px">🌙</button>
-    <button class="btn bo" onclick="dlTemplate()" title="Download CSV Template">⬇</button>
-    <button class="btn bo" onclick="exportMonthReport()" title="Export Report">📊</button>
-    <button class="btn bsave" onclick="saveMonthExcel()">💾 Save</button>
-    <button class="btn bo" onclick="exportCSV()" title="Export CSV">↓ CSV</button>
+    <button class="btn bo" onclick="dlTemplate()">⬇ Template</button>
+    <button class="btn bo" onclick="exportMonthReport()">📊 Report</button>
+    <button class="btn bsave" onclick="saveMonthExcel()">💾 Save Month</button>
+    <button class="btn bo" onclick="exportCSV()">↓ CSV</button>
   </div>
 </nav>
 
