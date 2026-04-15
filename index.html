@@ -381,6 +381,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
     </div>
     <select class="sel" id="FS" style="display:none" onchange="renderTracker()"><option value="">All Statuses</option></select>
     <select class="sel" id="FD" onchange="renderTracker()"><option value="">Data: All</option><option value="Yes">Received</option><option value="No">Pending</option></select>
+    <select class="sel" id="F2B" onchange="renderTracker()" style="display:none"><option value="">2B: All</option><option value="Downloaded">Downloaded</option><option value="Pending">Pending</option></select>
     <button class="btn bo" onclick="clearFilters()">Clear</button>
     <select class="sel" id="pageSizeSel" onchange="changePageSize(this.value)" style="margin-left:auto" title="Rows per page">
       <option value="15">15 / page</option>
@@ -1009,6 +1010,7 @@ function getDefaultRT(){const d=new Date().getDate();return d<=13?'GSTR-1':'GSTR
 let aRT=getDefaultRT(),aPT='M',aPi=getDefaultPeriod();
 let sel=new Set(),cSel=new Set(),eid=null,did=null,tp=1,cp=1,kbFocusIdx=-1,kbPageRows=[];
 let PS=15;
+let tSortCol=null,tSortDir=1;
 
 function aP(){return aPT==='M'?MP[aPi]:QP[aPi];}
 function gPc(c,pt,pi){const t=pt||aPT,i=pi!==undefined?pi:aPi;if(c.freq===t)return t==='M'?MP[i]:QP[i];return null;}
@@ -1393,7 +1395,7 @@ function renderDash(){
     const prevMoIdx = getDefaultPeriod(); // previous month index in MP
     dPT.value = 'M|' + prevMoIdx;
     // Set return type based on date
-    if(dRT) dRT.value = day <= 13 ? 'GSTR-1' : 'GSTR-3B';
+    if(dRT) dRT.value = day <= 20 ? 'GSTR-1' : 'GSTR-3B';
     dPT._defaultSet = true;
   }
   const rt=document.getElementById('dRT').value;
@@ -1459,6 +1461,7 @@ function renderRTTabs(){
   // Reset selected statuses when RT changes
   selectedStatuses=new Set();
   renderStatusFilterDropdown();
+  const f2bEl=document.getElementById('F2B');if(f2bEl){f2bEl.style.display=aRT==='GSTR-3B'?'':'none';if(aRT!=='GSTR-3B')f2bEl.value='';}
 }
 function renderStatusFilterDropdown(){
   const opts=document.getElementById('FSOptions');if(!opts)return;
@@ -1478,9 +1481,9 @@ function closeStatusFilterDropdown(){document.getElementById('FSDropdown').style
 document.addEventListener('click',function(e){if(!e.target.closest('#FSBtn')&&!e.target.closest('#FSDropdown'))closeStatusFilterDropdown();});
 function togStatusSel(s){if(selectedStatuses.has(s))selectedStatuses.delete(s);else selectedStatuses.add(s);renderStatusFilterDropdown();renderTracker();}
 function clearStatusFilter(){selectedStatuses.clear();renderStatusFilterDropdown();closeStatusFilterDropdown();renderTracker();}
-function switchRT(rt){aRT=rt;tp=1;kbFocusIdx=-1;renderRTTabs();renderTracker();}
+function switchRT(rt){aRT=rt;tp=1;kbFocusIdx=-1;tSortCol=null;tSortDir=1;renderRTTabs();renderTracker();}
 function renderPTs(){document.getElementById('mPT').innerHTML=MP.map((p,i)=>'<div class="pt '+(aPT==='M'&&aPi===i?'on':'')+'" onclick="swP(\'M\','+i+')">'+p.l+'</div>').join('');document.getElementById('qPT').innerHTML=QP.map((p,i)=>'<div class="pt '+(aPT==='Q'&&aPi===i?'on':'')+'" onclick="swP(\'Q\','+i+')">'+p.l+'</div>').join('');}
-function swP(t,i){aPT=t;aPi=i;tp=1;kbFocusIdx=-1;renderPTs();renderTracker();}
+function swP(t,i){aPT=t;aPi=i;tp=1;kbFocusIdx=-1;tSortCol=null;tSortDir=1;renderPTs();renderTracker();}
 
 function updateTrackerQEBanner(){
   const banner=document.getElementById('tQEBanner');const qe=isQEnd(aPT,aPi);
@@ -1489,25 +1492,68 @@ function updateTrackerQEBanner(){
   else{banner.style.display='none';}
 }
 function gFilt(){
-  const q=(document.getElementById('SB')?.value||'').toLowerCase(),ff=document.getElementById('FF')?.value||'',fb=document.getElementById('FB')?.value,fd=document.getElementById('FD')?.value||'',fu='';
+  const q=(document.getElementById('SB')?.value||'').toLowerCase(),ff=document.getElementById('FF')?.value||'',fb=document.getElementById('FB')?.value,fd=document.getElementById('FD')?.value||'';
+  const f2bF=document.getElementById('F2B')?.value||'';
   const qe=isQEnd(aPT,aPi)&&aPT==='M';
   return clients.filter(c=>{
     if(q&&!c.name.toLowerCase().includes(q)&&!c.gstin.toLowerCase().includes(q))return false;
     if(ff&&c.freq!==ff)return false;
     if(fb!==undefined&&fb!==''){if(c.batch!==(parseInt(fb)||0))return false;}
     const p=qe?tGetPeriod(c):gPc(c);if(!qe&&!p)return false;
-    if(p&&(selectedStatuses.size>0||fd)){const f=gF(c,aRT,p.id);if(selectedStatuses.size>0&&!selectedStatuses.has(f.st))return false;if(fd&&f.dr!==fd)return false;}
+    if(p){
+      const f=gF(c,aRT,p.id);
+      if(selectedStatuses.size>0&&!selectedStatuses.has(f.st))return false;
+      if(fd&&f.dr!==fd)return false;
+      if(f2bF&&aRT==='GSTR-3B'){const f2b=gF(c,'GSTR-2B',p.id);if((f2b.st||'Pending')!==f2bF)return false;}
+    }
     return true;
   });
 }
+function thSort(col){if(tSortCol===col)tSortDir*=-1;else{tSortCol=col;tSortDir=1;}renderTracker();}
 function renderTracker(){
   updateTrackerQEBanner();
   const pss=document.getElementById('pageSizeSel');if(pss&&pss.value!==String(PS))pss.value=String(PS);
   const qe=isQEnd(aPT,aPi)&&aPT==='M';
-  const filt=gFilt(),tot=filt.length,totPg=Math.max(1,Math.ceil(tot/PS));
+  let filt=gFilt();
+  if(tSortCol){
+    filt=[...filt].sort((a,b)=>{
+      const pa=qe?tGetPeriod(a):gPc(a),pb=qe?tGetPeriod(b):gPc(b);
+      let va,vb;
+      if(tSortCol==='name'){va=a.name.toLowerCase();vb=b.name.toLowerCase();}
+      else if(tSortCol==='freq'){va=a.freq;vb=b.freq;}
+      else if(tSortCol==='batch'){va=a.batch||0;vb=b.batch||0;}
+      else if(tSortCol==='deadline'){const da=pa?getDueDate(aRT,a.freq,pa.id):null,db=pb?getDueDate(aRT,b.freq,pb.id):null;va=da?da.getTime():Infinity;vb=db?db.getTime():Infinity;}
+      else if(tSortCol==='g2b'){va=pa?(gF(a,'GSTR-2B',pa.id).st||'Pending'):'';vb=pb?(gF(b,'GSTR-2B',pb.id).st||'Pending'):'';}
+      else if(tSortCol==='datarecv'){va=pa?(gF(a,aRT,pa.id).dr||'No'):'';vb=pb?(gF(b,aRT,pb.id).dr||'No'):'';}
+      else if(tSortCol==='recvtime'){va=pa?(gF(a,aRT,pa.id).drTs||''):'';vb=pb?(gF(b,aRT,pb.id).drTs||''):'';}
+      else if(tSortCol==='status'){const ord=SM[aRT];va=ord.indexOf(pa?gF(a,aRT,pa.id).st:'');vb=ord.indexOf(pb?gF(b,aRT,pb.id).st:'');}
+      else if(tSortCol==='worker'){va=pa?(gF(a,aRT,pa.id).aw||''):'';vb=pb?(gF(b,aRT,pb.id).aw||''):'';}
+      else if(tSortCol==='datefiled'){va=pa?(gF(a,aRT,pa.id).dof||''):'';vb=pb?(gF(b,aRT,pb.id).dof||''):'';}
+      else{va='';vb='';}
+      if(typeof va==='number'&&typeof vb==='number')return tSortDir*(va-vb);
+      return tSortDir*String(va).localeCompare(String(vb));
+    });
+  }
+  const tot=filt.length,totPg=Math.max(1,Math.ceil(tot/PS));
   if(tp>totPg)tp=totPg;const page=filt.slice((tp-1)*PS,tp*PS);
   const is3B=aRT==='GSTR-3B';
-  document.getElementById('TH').innerHTML='<tr><th><input type="checkbox" id="SA" onchange="tAll(this)"/></th><th>#</th><th>Client</th><th>Freq</th><th>Batch</th>'+(qe?'<th style="color:var(--ac3)">Period ⚡</th>':'')+'<th>Deadline</th>'+(is3B?'<th>GSTR-2B</th>':'')+'<th>Data Recv</th><th>Recv Time</th><th>'+aRT+' Status</th><th>Work Done By</th><th>Date Filed</th><th>Remarks</th><th>Actions</th></tr>';
+  function sInd(col){if(tSortCol!==col)return'<span style="color:var(--mu2);font-size:8px;margin-left:2px">⇅</span>';return tSortDir===1?'<span style="color:var(--ac);font-size:8px;margin-left:2px">↑</span>':'<span style="color:var(--ac);font-size:8px;margin-left:2px">↓</span>';}
+  function sTh(col,label){return'<th onclick="thSort(''+col+'')" style="cursor:pointer;user-select:none'+(tSortCol===col?';color:var(--ac)':'')+'" title="Click to sort">'+label+sInd(col)+'</th>';}
+  document.getElementById('TH').innerHTML='<tr>'+
+    '<th><input type="checkbox" id="SA" onchange="tAll(this)"/></th>'+
+    '<th>#</th>'+
+    sTh('name','Client')+
+    sTh('freq','Freq')+
+    sTh('batch','Batch')+
+    (qe?'<th style="color:var(--ac3)">Period ⚡</th>':'')+
+    sTh('deadline','Deadline')+
+    (is3B?sTh('g2b','GSTR-2B'):'')+
+    sTh('datarecv','Data Recv')+
+    sTh('recvtime','Recv Time')+
+    sTh('status',aRT+' Status')+
+    sTh('worker','Work Done By')+
+    sTh('datefiled','Date Filed')+
+    '<th>Remarks</th><th>Actions</th></tr>';
   if(!page.length){document.getElementById('TB').innerHTML='';document.getElementById('TE').style.display='block';}
   else{
     document.getElementById('TE').style.display='none';
@@ -1770,7 +1816,7 @@ async function applyBulk(){
   sel.clear();closeMo();renderTracker();
   await Promise.all(promises).catch(e=>showToast('Bulk save error: '+e.message,'var(--ac4)'));
 }
-function clearFilters(){['SB','FF','FB','FS','FD'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});selectedStatuses.clear();renderStatusFilterDropdown();renderTracker();}
+function clearFilters(){['SB','FF','FB','FS','FD','F2B'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});selectedStatuses.clear();tSortCol=null;tSortDir=1;renderStatusFilterDropdown();renderTracker();}
 
 // ── HISTORY / STATEMENT ──
 function openHist(cid){const c=clients.find(x=>x.id===cid);if(!c)return;document.getElementById('histName').textContent=c.name;document.getElementById('histSub').textContent=c.gstin||'';const log=c.history||[];document.getElementById('histLog').innerHTML=log.length?log.map(h=>'<div class="hlog-row"><div class="hlog-ts">'+h.ts+'</div><div style="flex:1;font-size:10px">'+h.msg+'</div><div class="hlog-who">'+(h.who||'')+'</div></div>').join(''):'<div style="color:var(--mu);font-size:11px;padding:10px">No activity yet.</div>';document.getElementById('histMo').classList.add('on');}
