@@ -337,10 +337,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
       <div id="qEndBadge" style="display:none" class="qbadge">⚡ Quarter-End · All Filers Consolidated</div>
       <select class="sel" id="dRT" onchange="renderDash()"><option>GSTR-1</option><option>GSTR-3B</option></select>
-      <select class="sel" id="dPT" onchange="renderDash()">
-        <optgroup label="Monthly"><option value="M|0">Apr 25</option><option value="M|1">May 25</option><option value="M|2">Jun 25</option><option value="M|3">Jul 25</option><option value="M|4">Aug 25</option><option value="M|5">Sep 25</option><option value="M|6">Oct 25</option><option value="M|7">Nov 25</option><option value="M|8">Dec 25</option><option value="M|9">Jan 26</option><option value="M|10">Feb 26</option><option value="M|11">Mar 26</option></optgroup>
-        <optgroup label="Quarterly"><option value="Q|0">Q1 Apr-Jun</option><option value="Q|1">Q2 Jul-Sep</option><option value="Q|2">Q3 Oct-Dec</option><option value="Q|3">Q4 Jan-Mar</option></optgroup>
-      </select>
+      <select class="sel" id="dPT" onchange="renderDash()"></select>
       <button class="btn bo" onclick="sendSlackSnapshot(document.getElementById('dRT').value, false)" title="Send current dashboard view to Slack">📤 Slack</button>
     </div>
   </div>
@@ -982,14 +979,10 @@ function buildFYData(startYear) {
   return {MP, QP, y1, y2, label:'FY '+y1+'-'+y2s};
 }
 function detectCurrentFY() {
-  const now = new Date(), mo = now.getMonth(), day = now.getDate();
-  // Indian FY: April–March (April = month index 3 in JS).
-  // The ENTIRE month of April is still "working on the prior FY":
-  //   - GSTR-1 for March is due 11 Apr
-  //   - GSTR-3B for March is due 20 Apr (monthly) / 22 Apr (quarterly)
-  // So we stay in FY 2025-26 throughout April so that Mar 26 is the default period,
-  // not Mar 27. We only flip to the new FY from 1 May onwards.
-  if (mo === 3) return now.getFullYear() - 1;   // whole of April → prior FY
+  const now = new Date(), mo = now.getMonth();
+  // Stay in prior FY for ALL of April — GSTR-1 (due 11th) and GSTR-3B (due 20th/22nd)
+  // for March are still being filed throughout April. Flip to new FY from 1 May.
+  if (mo === 3) return now.getFullYear() - 1;
   return mo >= 3 ? now.getFullYear() : now.getFullYear() - 1;
 }
 let currentFYStart = detectCurrentFY();
@@ -1325,9 +1318,8 @@ setInterval(checkAndSendScheduledSnapshots, 60000);
 //  PAGE NAV
 // ══════════════════════════════════════════
 function openFYPicker(){
-  const now = new Date();
-  // Stay in prior FY for the whole of April (same logic as detectCurrentFY)
-  const curFY = now.getMonth() === 3 ? now.getFullYear() - 1 : (now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1);
+  const now = new Date(), mo = now.getMonth();
+  const curFY = mo === 3 ? now.getFullYear() - 1 : (mo >= 3 ? now.getFullYear() : now.getFullYear() - 1);
   const years = [];
   for(let y = 2024; y <= curFY+1; y++) years.push(y);
   document.getElementById('fyList').innerHTML = years.map(y => {
@@ -1945,6 +1937,7 @@ function toggleTheme(){
 document.addEventListener('DOMContentLoaded', function() {
   const pss=document.getElementById('pageSizeSel');if(pss)pss.value='15';
   document.getElementById('fyLabel').textContent = FY_LABEL + ' ▾';
+  rebuildDashPeriodDropdown(); // always build from current MP/QP, never hardcode
   setTimeout(function() {
     if (typeof msal !== 'undefined') tryAutoSignIn();
   }, 500);
