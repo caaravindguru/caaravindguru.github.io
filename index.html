@@ -987,7 +987,7 @@ function detectCurrentFY() {
   // During April 1–13, the dashboard default is still MARCH of the prior FY
   // (GSTR-1 for March is due 11th Apr; GSTR-3B switches on 14th Apr).
   // Keep the tracker in FY 2025-26 for that period so Mar 26 shows, not Mar 27.
-  if (mo === 3 && day <= 13) return now.getFullYear() - 1;
+  if (mo === 3 && day <= 20) return now.getFullYear() - 1;
   return mo >= 3 ? now.getFullYear() : now.getFullYear() - 1;
 }
 let currentFYStart = detectCurrentFY();
