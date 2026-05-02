@@ -420,7 +420,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   </div>
   <div class="tw"><table><thead><tr>
     <th><input type="checkbox" id="CSA" onchange="tAllC(this)"/></th>
-    <th>#</th><th>Client Name</th><th>GSTIN</th><th>Freq</th><th>Batch</th><th>Responsible</th><th>Actions</th>
+    <th onclick="setCSort('code')" style="cursor:pointer;white-space:nowrap;color:var(--mu)" title="Sort by Client Code">#<span id="cCodeSortInd"></span></th><th>Client Name</th><th>GSTIN</th><th>Freq</th><th>Batch</th><th>Responsible</th><th>Actions</th>
   </tr></thead><tbody id="CTB"></tbody></table>
   <div class="empty" id="CE" style="display:none">No clients found.</div></div>
   <div class="pgn" id="CPG"></div>
@@ -537,6 +537,11 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <label class="fl">GSTIN</label><input class="fi" id="mG" placeholder="e.g. 29AABCT1234A1Z5" maxlength="15"/>
   <label class="fl">Frequency *</label><select class="fi" id="mF"><option value="M">Monthly</option><option value="Q">Quarterly (QRMP)</option></select>
   <label class="fl">Batch</label><select class="fi" id="mB"><option value="0">Unassigned</option><option value="1">Batch A</option><option value="2">Batch B</option><option value="3">Batch C</option><option value="4">Batch D</option><option value="5">Batch E</option></select>
+  <div id="mCodeWrap" style="display:none">
+    <label class="fl">Client Code</label>
+    <input class="fi" id="mCode" placeholder="e.g. A1, B3..." maxlength="10"/>
+    <p style="font-size:10px;color:var(--mu);margin-top:4px">Editing the code updates it in SharePoint immediately. Ensure it is unique within the batch.</p>
+  </div>
   <div class="ma"><button class="btn bo" onclick="closeMo()">Cancel</button><button class="btn bp" id="saveClientBtn" onclick="saveClient()">Save to SharePoint</button></div>
 </div></div>
 
@@ -1486,6 +1491,14 @@ function applySort(list) {
     const pa = qe ? tGetPeriod(a) : gPc(a);
     const pb = qe ? tGetPeriod(b) : gPc(b);
     switch (sortCol) {
+      case 'code': {
+        // Sort by batch letter first, then numeric part of code, blanks last
+        const ba=a.batch||99, bb=b.batch||99;
+        if(ba!==bb) return sortDir==='asc'?ba-bb:bb-ba;
+        const na=parseInt((a.clientCode||'').replace(/\D/g,''))||9999;
+        const nb=parseInt((b.clientCode||'').replace(/\D/g,''))||9999;
+        return sortDir==='asc'?na-nb:nb-na;
+      }
       case 'name':     va = a.name.toLowerCase();  vb = b.name.toLowerCase();  break;
       case 'gstin':    va = a.gstin.toLowerCase();  vb = b.gstin.toLowerCase(); break;
       case 'freq':     va = a.freq;  vb = b.freq;   break;
@@ -1594,7 +1607,7 @@ function renderTracker(){
   }
   document.getElementById('TH').innerHTML='<tr>'
     +'<th><input type="checkbox" id="SA" onchange="tAll(this)"/></th>'
-    +'<th style="color:var(--mu)">#</th>'
+    +'<th onclick="setSort(\'code\')" style="cursor:pointer;white-space:nowrap;'+(sortCol==='code'?'color:var(--ac)':'')+'" title="Sort by Client Code">#'+sortInd('code')+'</th>'
     +th('Client','name')
     +th('Freq','freq')
     +th('Batch','batch')
@@ -1892,7 +1905,7 @@ function openStmt(cid){
 // ══════════════════════════════════════════
 function gFiltC(){const q=(document.getElementById('CS')?.value||'').toLowerCase(),bf=document.getElementById('CB')?.value||'',ff=document.getElementById('CF')?.value||'';return clients.filter(c=>{if(q&&!c.name.toLowerCase().includes(q)&&!c.gstin.toLowerCase().includes(q))return false;if(bf!==''){if(c.batch!==(parseInt(bf)||0))return false;}if(ff&&c.freq!==ff)return false;return true;});}
 function renderClients(){
-  const filt=gFiltC(),tot=filt.length,totPg=Math.max(1,Math.ceil(tot/PS));
+  const filt=applyClientSort(gFiltC()),tot=filt.length,totPg=Math.max(1,Math.ceil(tot/PS));
   if(cp>totPg)cp=totPg;const page=filt.slice((cp-1)*PS,cp*PS);
   document.getElementById('cCt').textContent=clients.length+' total · '+tot+' shown';
   if(!page.length){document.getElementById('CTB').innerHTML='';document.getElementById('CE').style.display='block';}
@@ -1902,9 +1915,26 @@ function renderClients(){
     return'<tr><td><input type="checkbox" '+(cSel.has(c.id)?'checked':'')+' onchange="togCSel(\''+c.id+'\',this)"/></td><td class="rn" style="font-weight:700;color:var(--ac)">'+rowNum+'</td><td><div class="cn">'+c.name+'</div></td><td><div class="cg2">'+c.gstin+'</div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Monthly':'Quarterly')+'</span></td><td>'+(c.batch>0?'<span class="bb">Batch '+(bl||c.batch)+'</span>':'<span style="color:var(--mu2);font-size:9px">—</span>')+'</td><td style="font-size:10px;color:var(--mu)">'+(c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'—')+'</td><td><button class="btn bo" style="margin-right:4px" onclick="openEdit(\''+c.id+'\')">Edit</button><button class="btn bo" style="margin-right:4px" onclick="openStmt(\''+c.id+'\')">🖨</button><button class="btn bdd" onclick="openDel(\''+c.id+'\')">Del</button></td></tr>';
   }).join('');}
   const csa=document.getElementById('CSA');if(csa){const pi=page.map(c=>c.id);csa.checked=pi.length>0&&pi.every(id=>cSel.has(id));csa.indeterminate=pi.some(id=>cSel.has(id))&&!csa.checked;}
+  const csi=document.getElementById('cCodeSortInd');if(csi)csi.outerHTML='<span id="cCodeSortInd">'+cSortInd('code')+'</span>';
   renderCBulk();renderPgn(tot,totPg,'c');
 }
-function togCSel(id,cb){if(cb.checked)cSel.add(id);else cSel.delete(id);renderCBulk();}
+// ── CLIENTS PAGE SORT ──
+let cSortCol=null,cSortDir='asc';
+function setCSort(col){if(cSortCol===col){if(cSortDir==='asc')cSortDir='desc';else{cSortCol=null;cSortDir='asc';}}else{cSortCol=col;cSortDir='asc';}cp=1;renderClients();}
+function cSortInd(col){if(cSortCol!==col)return '<span style="opacity:.22;font-size:9px;margin-left:3px">⇅</span>';return cSortDir==='asc'?'<span style="color:var(--ac);font-size:9px;margin-left:3px">▲</span>':'<span style="color:var(--ac);font-size:9px;margin-left:3px">▼</span>';}
+function applyClientSort(list){
+  if(!cSortCol)return list;
+  return [...list].sort((a,b)=>{
+    if(cSortCol==='code'){
+      const ba=a.batch||99,bb=b.batch||99;
+      if(ba!==bb)return cSortDir==='asc'?ba-bb:bb-ba;
+      const na=parseInt((a.clientCode||'').replace(/\D/g,''))||9999;
+      const nb=parseInt((b.clientCode||'').replace(/\D/g,''))||9999;
+      return cSortDir==='asc'?na-nb:nb-na;
+    }
+    return 0;
+  });
+}
 function tAllC(cb){gFiltC().slice((cp-1)*PS,cp*PS).forEach(c=>{if(cb.checked)cSel.add(c.id);else cSel.delete(c.id);});renderCBulk();renderClients();}
 function clearCSel(){cSel.clear();renderCBulk();renderClients();}
 function renderCBulk(){const b=document.getElementById('cBulkBar');if(cSel.size>0){b.classList.add('on');document.getElementById('cBulkCt').textContent=cSel.size+' client'+(cSel.size>1?'s':'')+' selected';}else b.classList.remove('on');}
@@ -1918,20 +1948,36 @@ async function confirmBulkDel(){
 // ── MODALS ──
 function closeMo(){document.querySelectorAll('.mo').forEach(m=>m.classList.remove('on'));eid=null;did=null;}
 document.querySelectorAll('.mo').forEach(m=>m.addEventListener('click',function(e){if(e.target===this)closeMo();}));
-function openAddClient(){eid=null;document.getElementById('cMT').textContent='Add Client';document.getElementById('mN').value='';document.getElementById('mG').value='';document.getElementById('mF').value='M';document.getElementById('mB').value='0';document.getElementById('dupErr').style.display='none';document.getElementById('cModal').classList.add('on');}
-function openEdit(id){const c=clients.find(x=>x.id===id);if(!c)return;eid=id;document.getElementById('cMT').textContent='Edit Client';document.getElementById('mN').value=c.name;document.getElementById('mG').value=c.gstin;document.getElementById('mF').value=c.freq;document.getElementById('mB').value=c.batch||0;document.getElementById('dupErr').style.display='none';document.getElementById('cModal').classList.add('on');}
+function openAddClient(){eid=null;document.getElementById('cMT').textContent='Add Client';document.getElementById('mN').value='';document.getElementById('mG').value='';document.getElementById('mF').value='M';document.getElementById('mB').value='0';document.getElementById('mCodeWrap').style.display='none';document.getElementById('mCode').value='';document.getElementById('dupErr').style.display='none';document.getElementById('cModal').classList.add('on');}
+function openEdit(id){const c=clients.find(x=>x.id===id);if(!c)return;eid=id;document.getElementById('cMT').textContent='Edit Client';document.getElementById('mN').value=c.name;document.getElementById('mG').value=c.gstin;document.getElementById('mF').value=c.freq;document.getElementById('mB').value=c.batch||0;document.getElementById('mCode').value=c.clientCode||'';document.getElementById('mCodeWrap').style.display='block';document.getElementById('dupErr').style.display='none';document.getElementById('cModal').classList.add('on');}
 async function saveClient(){
   const n=document.getElementById('mN').value.trim(),g=document.getElementById('mG').value.trim().toUpperCase(),f=document.getElementById('mF').value,b=parseInt(document.getElementById('mB').value)||0;
   if(!n){alert('Client name required.');return;}
-  // Duplicate name check — skip self when editing
   const dup=clients.find(c=>c.name.trim().toLowerCase()===n.toLowerCase()&&c.id!==eid);if(dup){document.getElementById('dupErr').style.display='block';document.getElementById('mN').focus();return;}
   document.getElementById('dupErr').style.display='none';
+  // Validate client code uniqueness when editing
+  const newCode=(document.getElementById('mCode')?.value||'').trim().toUpperCase();
+  if(eid&&newCode){
+    const codeDup=clients.find(c=>c.clientCode===newCode&&c.id!==eid);
+    if(codeDup){alert('⚠ Client code "'+newCode+'" is already assigned to '+codeDup.name+'. Please use a unique code.');return;}
+  }
   document.getElementById('saveClientBtn').disabled=true;document.getElementById('saveClientBtn').textContent='Saving...';
-  if(eid){const c=clients.find(x=>x.id===eid);if(c){c.name=n;c.gstin=g;c.batch=b;if(c.freq!==f)c.freq=f;addHistory(c,'Client details updated');await spSaveClient(c,false).catch(e=>showToast(e.message,'var(--ac4)'));}}
-  else{const nc={id:'new_'+Date.now(),name:n,gstin:g,freq:f,batch:b,urgent:false,clientCode:'',history:[{ts:nowTs(),msg:'Client added',who:currentUser?.name||'Staff'}]};
-    // Auto-assign next available code if batch is set
+  if(eid){
+    const c=clients.find(x=>x.id===eid);
+    if(c){
+      const prevCode=c.clientCode||'';
+      c.name=n;c.gstin=g;c.batch=b;if(c.freq!==f)c.freq=f;
+      c.clientCode=newCode;
+      const histMsg='Client details updated'+(newCode!==prevCode?' · Code: '+(prevCode||'(none)')+' → '+(newCode||'(none)'):'');
+      addHistory(c,histMsg);
+      await spSaveClient(c,false).catch(e=>showToast(e.message,'var(--ac4)'));
+    }
+  }
+  else{
+    const nc={id:'new_'+Date.now(),name:n,gstin:g,freq:f,batch:b,urgent:false,clientCode:'',history:[{ts:nowTs(),msg:'Client added',who:currentUser?.name||'Staff'}]};
     if(b>0){nc.clientCode=nextCodeInBatch(b)||'';}
-    const spId=await spSaveClient(nc,true).catch(e=>{showToast(e.message,'var(--ac4)');return null;});if(spId){nc.id=spId;clients.push(nc);}}
+    const spId=await spSaveClient(nc,true).catch(e=>{showToast(e.message,'var(--ac4)');return null;});if(spId){nc.id=spId;clients.push(nc);}
+  }
   document.getElementById('saveClientBtn').disabled=false;document.getElementById('saveClientBtn').textContent='Save to SharePoint';
   closeMo();renderClients();renderDash();
 }
