@@ -365,7 +365,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <div class="toolbar" style="margin-top:10px">
     <input class="si" id="SB" placeholder="Search client or GSTIN..." oninput="renderTracker()"/>
     <select class="sel" id="FF" onchange="renderTracker()"><option value="">All Frequencies</option><option value="M">Monthly</option><option value="Q">Quarterly</option></select>
-    <select class="sel" id="FB" onchange="renderTracker()"><option value="">All Batches</option><option value="1">Batch 1</option><option value="2">Batch 2</option><option value="3">Batch 3</option><option value="4">Batch 4</option><option value="5">Batch 5</option><option value="0">Unassigned</option></select>
+    <select class="sel" id="FB" onchange="renderTracker()"><option value="">All Batches</option><option value="1">Batch A</option><option value="2">Batch B</option><option value="3">Batch C</option><option value="4">Batch D</option><option value="5">Batch E</option><option value="0">Unassigned</option></select>
     <div class="sw" style="position:relative;display:inline-block">
       <button class="sel" id="FSBtn" onclick="togStatusFilter(event)" style="cursor:pointer;min-width:130px;text-align:left;padding:6px 22px 6px 8px;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23556278'/%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 7px center;font-size:10px;height:32px;border-radius:var(--r);border:1px solid var(--bd);background-color:var(--s2);color:var(--tx);outline:none" id="FSBtn">All Statuses</button>
       <div id="FSDropdown" style="display:none;position:absolute;top:100%;left:0;z-index:9999;background:var(--s1);border:1px solid var(--bd2);border-radius:var(--r);min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,.18);padding:6px 0">
@@ -410,7 +410,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   </div>
   <div class="toolbar">
     <input class="si" id="CS" placeholder="Search name or GSTIN..." oninput="renderClients()"/>
-    <select class="sel" id="CB" onchange="renderClients()"><option value="">All Batches</option><option value="1">Batch 1</option><option value="2">Batch 2</option><option value="3">Batch 3</option><option value="4">Batch 4</option><option value="5">Batch 5</option><option value="0">Unassigned</option></select>
+    <select class="sel" id="CB" onchange="renderClients()"><option value="">All Batches</option><option value="1">Batch A</option><option value="2">Batch B</option><option value="3">Batch C</option><option value="4">Batch D</option><option value="5">Batch E</option><option value="0">Unassigned</option></select>
     <select class="sel" id="CF" onchange="renderClients()"><option value="">All Frequencies</option><option value="M">Monthly</option><option value="Q">Quarterly</option></select>
   </div>
   <div class="cbulk" id="cBulkBar">
@@ -434,11 +434,11 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
     <div class="sc2">
       <h3>Person Names (Batch Allocation)</h3>
       <div id="persFields">
-        <div class="per"><span class="pix">B1</span><input class="fi" id="p0" placeholder="Name for Batch 1..."/></div>
-        <div class="per"><span class="pix">B2</span><input class="fi" id="p1" placeholder="Name for Batch 2..."/></div>
-        <div class="per"><span class="pix">B3</span><input class="fi" id="p2" placeholder="Name for Batch 3..."/></div>
-        <div class="per"><span class="pix">B4</span><input class="fi" id="p3" placeholder="Name for Batch 4..."/></div>
-        <div class="per"><span class="pix">B5</span><input class="fi" id="p4" placeholder="Name for Batch 5..."/></div>
+        <div class="per"><span class="pix">BA</span><input class="fi" id="p0" placeholder="Name for Batch A..."/></div>
+        <div class="per"><span class="pix">BB</span><input class="fi" id="p1" placeholder="Name for Batch B..."/></div>
+        <div class="per"><span class="pix">BC</span><input class="fi" id="p2" placeholder="Name for Batch C..."/></div>
+        <div class="per"><span class="pix">BD</span><input class="fi" id="p3" placeholder="Name for Batch D..."/></div>
+        <div class="per"><span class="pix">BE</span><input class="fi" id="p4" placeholder="Name for Batch E..."/></div>
       </div>
       <button class="btn bp" style="margin-top:12px" onclick="savePersons()">Save Names</button>
     </div>
@@ -536,7 +536,7 @@ var st,ct,ut,lt,dt,ht,pt,gt,ft,mt=function(){function t(e,t,r){this.networkInter
   <p id="dupErr" style="color:#dc2626;font-size:12px;margin-top:5px;display:none">⚠ A client with this name already exists.</p>
   <label class="fl">GSTIN</label><input class="fi" id="mG" placeholder="e.g. 29AABCT1234A1Z5" maxlength="15"/>
   <label class="fl">Frequency *</label><select class="fi" id="mF"><option value="M">Monthly</option><option value="Q">Quarterly (QRMP)</option></select>
-  <label class="fl">Batch</label><select class="fi" id="mB"><option value="0">Unassigned</option><option value="1">Batch 1</option><option value="2">Batch 2</option><option value="3">Batch 3</option><option value="4">Batch 4</option><option value="5">Batch 5</option></select>
+  <label class="fl">Batch</label><select class="fi" id="mB"><option value="0">Unassigned</option><option value="1">Batch A</option><option value="2">Batch B</option><option value="3">Batch C</option><option value="4">Batch D</option><option value="5">Batch E</option></select>
   <div class="ma"><button class="btn bo" onclick="closeMo()">Cancel</button><button class="btn bp" id="saveClientBtn" onclick="saveClient()">Save to SharePoint</button></div>
 </div></div>
 
@@ -786,6 +786,19 @@ let clients = [];
 let persons = ['','','','',''];
 let nid = 1;
 let filingMap = {}; // key: "clientSPId|RT|periodId" -> { spId, st, dr, drTs, dof, rem }
+
+// ── BATCH LABEL HELPERS ──
+const BATCH_LABELS = ['A','B','C','D','E'];
+function batchLetter(b){ return (b>=1&&b<=5)?BATCH_LABELS[b-1]:null; }
+// Returns client code like A1, A2, B1 — ordered within each batch alphabetically by name
+function clientCode(c){
+  const bl=batchLetter(c.batch);
+  if(!bl)return null;
+  // Build sorted list of clients in same batch to assign sequential number
+  const batchClients=[...clients].filter(x=>x.batch===c.batch).sort((a,z)=>a.name.toLowerCase().localeCompare(z.name.toLowerCase(),'en'));
+  const idx=batchClients.findIndex(x=>x.id===c.id);
+  return bl+(idx>=0?idx+1:'?');
+}
 
 async function loadAllData() {
   // Load clients
@@ -1041,7 +1054,7 @@ function pNameForPeriod(b, pid) {
   // 4. Fall back to global persons array (Settings)
   return persons[b-1] || '';
 }
-function pName(b){return b>0&&persons[b-1]?persons[b-1]:'Person '+b;}
+function pName(b){return b>0&&persons[b-1]?persons[b-1]:'Batch '+(batchLetter(b)||b);}
 
 function promptAllocPassword(){
   document.getElementById('allocPassInput').value='';
@@ -1066,7 +1079,8 @@ function openAllocMo() {
   const alloc = periodAllocMap[p.id] || ['','','','',''];
   let h = '';
   for (let i = 0; i < 5; i++) {
-    h += '<div class="per" style="margin-bottom:8px"><span class="pix">B'+(i+1)+'</span><input class="fi" id="ap'+i+'" placeholder="Person name for Batch '+(i+1)+'..." value="'+(alloc[i]||'')+'"/></div>';
+    const bl=BATCH_LABELS[i];
+    h += '<div class="per" style="margin-bottom:8px"><span class="pix">B'+bl+'</span><input class="fi" id="ap'+i+'" placeholder="Person name for Batch '+bl+'..." value="'+(alloc[i]||'')+'"/></div>';
   }
   // Show note if this is a QE month — allocation will apply to quarterly filers too
   if (aPT === 'M') {
@@ -1212,7 +1226,7 @@ function buildSlackSnapshot(rt) {
     if (bt > 0) {
       const pp = Math.round(bf/bt*100);
       const pBar = pp===100?'✅':(pp>=70?'🟡':'🔴');
-      personLines.push(`${pBar} *${pn}*: ${bf}/${bt} filed (${pp}%)`);
+      personLines.push(`${pBar} *${pn}* (Batch ${batchLetter(b)||b}): ${bf}/${bt} filed (${pp}%)`);
     }
   }
 
@@ -1430,7 +1444,7 @@ function renderDash(){
   const row1Cells=row1Statuses.map((s,si)=>'<div class="psi"><div class="v" style="color:'+(statCols[si]||'var(--mu)')+'">'+bsCnt[s]+'</div><div class="l" style="font-size:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+s+'">'+s.replace('Completed - ','')+'</div></div>').join('');
   const row2Cols=hasPP?'1fr 1fr':'1fr';
   const row2Cells=(hasPP?'<div class="psi"><div class="v" style="color:var(--ac3)">'+(bsCnt['Payment Pending']||0)+'</div><div class="l">Payment Pending</div></div>':'')+'<div class="psi"><div class="v" style="color:var(--ac2)">'+bf+'</div><div class="l">Filed</div></div>';
-  pH+='<div class="pc"><div class="pn">'+pn+'</div><div class="psb">Batch '+b+' · '+bc.length+' clients</div>'
+  pH+='<div class="pc"><div class="pn">'+pn+'</div><div class="psb">Batch '+(batchLetter(b)||b)+' · '+bc.length+' clients</div>'
     +'<div style="display:grid;grid-template-columns:repeat('+(row1Statuses.length+1)+',1fr);gap:3px;margin-top:6px">'
     +'<div class="psi"><div class="v" style="color:var(--ac2)">'+bdr+'</div><div class="l">Data Recv</div></div>'
     +row1Cells+'</div>'
@@ -1601,7 +1615,9 @@ function renderTracker(){
     document.getElementById('TB').innerHTML=page.map((c,idx)=>{
       const p=qe?tGetPeriod(c):gPc(c);const gi=(tp-1)*PS+idx+1;
       const curPid=p?p.id:(aP().id);const allocName=c.batch>0?pNameForPeriod(c.batch,curPid):'';
-      const bL=c.batch>0?'<span class="bb">B'+c.batch+(allocName?' '+allocName:'')+'</span>':'<span style="color:var(--mu2);font-size:9px">—</span>';
+      const bl=batchLetter(c.batch);
+      const bL=c.batch>0?'<span class="bb">'+(bl||'B'+c.batch)+(allocName?' '+allocName:'')+'</span>':'<span style="color:var(--mu2);font-size:9px">—</span>';
+      const cc=clientCode(c);const rowNum=cc||gi;
       let periodCell=qe?'<td><span style="font-size:9px;padding:2px 7px;border-radius:4px;font-weight:600;'+(c.freq==='Q'?'background:rgba(52,211,153,.1);color:var(--ac2);border:1px solid rgba(52,211,153,.25)':'background:rgba(91,141,240,.1);color:var(--ac);border:1px solid rgba(91,141,240,.25)')+'">'+(p?p.l:'N/A')+(c.freq==='Q'?' (QRMP)':'')+'</span></td>':'';
       let stC='',drC='',tsC='',dofC='',awC='',remC='',dlC='',actC='',g2bC='';
       if(!p){stC='<span style="color:var(--mu2);font-size:9px">N/A</span>';drC=tsC=dofC=awC='<span style="color:var(--mu2);font-size:9px">—</span>';remC='—';dlC='';g2bC='<span style="color:var(--mu2);font-size:9px">—</span>';}
@@ -1639,7 +1655,7 @@ function renderTracker(){
         actC='<button class="btn bo" style="font-size:9px;padding:3px 7px" onclick="openHist(\''+c.id+'\')" title="History">📋</button><button class="btn bo" style="font-size:9px;padding:3px 7px;margin-left:3px" onclick="openStmt(\''+c.id+'\')" title="Statement">🖨</button>';
       }
       const rowBg=qe&&c.freq==='Q'?'style="background:rgba(52,211,153,.025)"':'';
-      return '<tr id="tr'+c.id+'" data-cid="'+c.id+'" '+rowBg+'><td><input type="checkbox" '+(sel.has(c.id)?'checked':'')+' onchange="togSel(\''+c.id+'\',this)"/></td><td class="rn">'+gi+'</td><td><div><div class="cn">'+c.name+'</div><div class="cg2">'+c.gstin+'</div></div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Mon':'Qtr')+'</span></td><td>'+bL+'</td>'+periodCell+'<td>'+dlC+'</td>'+(is3B?'<td>'+g2bC+'</td>':'')+'<td>'+drC+'</td><td>'+tsC+'</td><td>'+stC+'</td><td>'+awC+'</td><td>'+dofC+'</td><td>'+remC+'</td><td>'+actC+'</td></tr>';
+      return '<tr id="tr'+c.id+'" data-cid="'+c.id+'" '+rowBg+'><td><input type="checkbox" '+(sel.has(c.id)?'checked':'')+' onchange="togSel(\''+c.id+'\',this)"/></td><td class="rn">'+rowNum+'</td><td><div><div class="cn">'+c.name+'</div><div class="cg2">'+c.gstin+'</div></div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Mon':'Qtr')+'</span></td><td>'+bL+'</td>'+periodCell+'<td>'+dlC+'</td>'+(is3B?'<td>'+g2bC+'</td>':'')+'<td>'+drC+'</td><td>'+tsC+'</td><td>'+stC+'</td><td>'+awC+'</td><td>'+dofC+'</td><td>'+remC+'</td><td>'+actC+'</td></tr>';
     }).join('');
     kbPageRows=page;applyKBFocus(page);
   }
@@ -1880,7 +1896,7 @@ function renderClients(){
   if(cp>totPg)cp=totPg;const page=filt.slice((cp-1)*PS,cp*PS);
   document.getElementById('cCt').textContent=clients.length+' total · '+tot+' shown';
   if(!page.length){document.getElementById('CTB').innerHTML='';document.getElementById('CE').style.display='block';}
-  else{document.getElementById('CE').style.display='none';document.getElementById('CTB').innerHTML=page.map((c,i)=>{const gi=(cp-1)*PS+i+1;return'<tr><td><input type="checkbox" '+(cSel.has(c.id)?'checked':'')+' onchange="togCSel(\''+c.id+'\',this)"/></td><td class="rn">'+gi+'</td><td><div class="cn">'+c.name+'</div></td><td><div class="cg2">'+c.gstin+'</div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Monthly':'Quarterly')+'</span></td><td>'+(c.batch>0?'<span class="bb">Batch '+c.batch+'</span>':'<span style="color:var(--mu2);font-size:9px">—</span>')+'</td><td style="font-size:10px;color:var(--mu)">'+(c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'—')+'</td><td><button class="btn bo" style="margin-right:4px" onclick="openEdit(\''+c.id+'\')">Edit</button><button class="btn bo" style="margin-right:4px" onclick="openStmt(\''+c.id+'\')">🖨</button><button class="btn bdd" onclick="openDel(\''+c.id+'\')">Del</button></td></tr>';}).join('');}
+  else{document.getElementById('CE').style.display='none';document.getElementById('CTB').innerHTML=page.map((c,i)=>{const gi=(cp-1)*PS+i+1;const cc=clientCode(c);const rowNum=cc||gi;const bl=batchLetter(c.batch);return'<tr><td><input type="checkbox" '+(cSel.has(c.id)?'checked':'')+' onchange="togCSel(\''+c.id+'\',this)"/></td><td class="rn">'+rowNum+'</td><td><div class="cn">'+c.name+'</div></td><td><div class="cg2">'+c.gstin+'</div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Monthly':'Quarterly')+'</span></td><td>'+(c.batch>0?'<span class="bb">Batch '+(bl||c.batch)+'</span>':'<span style="color:var(--mu2);font-size:9px">—</span>')+'</td><td style="font-size:10px;color:var(--mu)">'+(c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'—')+'</td><td><button class="btn bo" style="margin-right:4px" onclick="openEdit(\''+c.id+'\')">Edit</button><button class="btn bo" style="margin-right:4px" onclick="openStmt(\''+c.id+'\')">🖨</button><button class="btn bdd" onclick="openDel(\''+c.id+'\')">Del</button></td></tr>';}).join('');}
   const csa=document.getElementById('CSA');if(csa){const pi=page.map(c=>c.id);csa.checked=pi.length>0&&pi.every(id=>cSel.has(id));csa.indeterminate=pi.some(id=>cSel.has(id))&&!csa.checked;}
   renderCBulk();renderPgn(tot,totPg,'c');
 }
@@ -1923,7 +1939,7 @@ async function confirmDel(){
 //  SETTINGS
 // ══════════════════════════════════════════
 function renderSettings(){
-  let bH='';for(let b=0;b<=5;b++){const bc=clients.filter(c=>b===0?(!c.batch||c.batch===0):c.batch===b),lb=b===0?'Unassigned':'Batch '+b;bH+='<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)"><span style="font-size:11px">'+lb+'</span><span style="font-weight:800;font-size:15px;color:'+(b===0?'var(--mu)':'var(--ac)')+'">'+bc.length+'</span></div>';}
+  let bH='';for(let b=0;b<=5;b++){const bc=clients.filter(c=>b===0?(!c.batch||c.batch===0):c.batch===b),bl=batchLetter(b),lb=b===0?'Unassigned':'Batch '+(bl||b);bH+='<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)"><span style="font-size:11px">'+lb+'</span><span style="font-weight:800;font-size:15px;color:'+(b===0?'var(--mu)':'var(--ac)')+'">'+bc.length+'</span></div>';}
   document.getElementById('bSum').innerHTML=bH;
   // Show webhook status (masked) without exposing the URL
   const inp=document.getElementById('slackWebhookInput');
@@ -1979,7 +1995,7 @@ function parseCSVText(text){
   for(let i=1;i<lines.length;i++){if(!lines[i].trim())continue;const row=parseRow(lines[i]);const name=(row[colMap.name]||'').replace(/^"|"$/g,'').trim();if(!name){skip++;previewRows.push({status:'skip',msg:'Row '+(i+1)+': Empty name'});continue;}
   const gstin=colMap.gstin!==undefined?(row[colMap.gstin]||'').replace(/^"|"$/g,'').trim().toUpperCase():'';let freq='M';if(colMap.freq!==undefined){const fv=(row[colMap.freq]||'').replace(/^"|"$/g,'').trim().toUpperCase();if(fv==='Q'||fv.startsWith('Q'))freq='Q';}let batch=0;if(colMap.batch!==undefined){const bv=parseInt((row[colMap.batch]||'').replace(/^"|"$/g,''));if(bv>=1&&bv<=5)batch=bv;}
   const dup=clients.find(c=>c.name.toLowerCase()===name.toLowerCase()||(gstin&&c.gstin===gstin));if(dup){skip++;previewRows.push({status:'warn',msg:'Row '+(i+1)+': "'+name+'" — duplicate'});continue;}
-  impParsed.push({name,gstin,freq,batch});ok++;previewRows.push({status:'ok',msg:'Row '+(i+1)+': '+name+(gstin?' · '+gstin:'')+(freq==='Q'?' · Qtr':'')+(batch?' · Batch '+batch:'')});}
+  impParsed.push({name,gstin,freq,batch});ok++;previewRows.push({status:'ok',msg:'Row '+(i+1)+': '+name+(gstin?' · '+gstin:'')+(freq==='Q'?' · Qtr':'')+(batch?' · Batch '+(batchLetter(batch)||batch):'')});}
   document.getElementById('impSummary').textContent=ok+' to import · '+skip+' skipped';
   document.getElementById('impPreview').innerHTML=previewRows.map(r=>'<div class="import-row"><span class="import-'+r.status+'">'+(r.status==='ok'?'✓':r.status==='warn'?'⚠':'✗')+'</span><span>'+r.msg+'</span></div>').join('');
   document.getElementById('impPreviewWrap').style.display='block';document.getElementById('impBtn').style.display=ok>0?'inline-flex':'none';
@@ -1989,13 +2005,13 @@ async function importClients(){
   for(const c of impParsed){const nc={id:'new_'+Date.now(),name:c.name,gstin:c.gstin,freq:c.freq,batch:c.batch,urgent:false,history:[{ts:nowTs(),msg:'Imported via CSV',who:currentUser?.name||'Staff'}]};const spId=await spSaveClient(nc,true).catch(()=>null);if(spId){nc.id=spId;clients.push(nc);}}
   const cnt=impParsed.length;impParsed=[];document.getElementById('impBtn').disabled=false;document.getElementById('impBtn').textContent='✓ Import to SharePoint';closeMo();renderClients();renderDash();showToast('✓ Imported '+cnt+' client'+(cnt>1?'s':'')+'!');
 }
-function dlTemplate(){const csv='"Client Name","GSTIN","Frequency","Batch"\n"Example Traders Pvt Ltd","29AABCT1234A1Z5","M","1"\n"Sample Exports","27AABCE5678B2Z3","Q","2"';const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Import_Template.csv';a.click();}
+function dlTemplate(){const csv='"Client Name","GSTIN","Frequency","Batch"\n"Example Traders Pvt Ltd","29AABCT1234A1Z5","M","1"\n"Sample Exports","27AABCE5678B2Z3","Q","2"\n\n"Note: Batch column accepts 1=A, 2=B, 3=C, 4=D, 5=E"';const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Import_Template.csv';a.click();}
 
 // ══════════════════════════════════════════
 //  EXPORTS
 // ══════════════════════════════════════════
-function exportCSV(){const p=aP();const rows=[['#','Client','GSTIN','Freq','Batch','Responsible','Data Recv','Recv Time',aRT+' Status','Date Filed','Remarks']];clients.forEach((c,i)=>{const cp2=gPc(c);const f=cp2?gF(c,aRT,cp2.id):{st:'N/A',dof:'',dr:'N/A',drTs:'',rem:''};rows.push([i+1,c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch||'Unassigned',c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'',f.dr,f.drTs||'',f.st,f.dof||'',f.rem||'']);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Tracker_'+p.l+'.csv';a.click();}
-function saveMonthExcel(){const p=aP();const periodName=(aPT==='M'?MP[aPi].l:QP[aPi].l)+' '+FY_LABEL;const headers=['#','Client Name','GSTIN','Frequency','Batch','Responsible Person','Data Received','Data Recv Timestamp','GSTR-1 Status','GSTR-1 Date Filed','GSTR-1 Remarks','GSTR-3B Status','GSTR-3B Date Filed','GSTR-3B Remarks','GSTR-2B Status','GSTR-2B Date Filed','GSTR-2B Remarks'];const rows=[headers];clients.forEach((c,i)=>{const cp2=gPc(c);const row=[i+1,c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch||'Unassigned',c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'Not Assigned',cp2?(gF(c,'GSTR-1',cp2.id).dr||'No'):'N/A',cp2?(gF(c,'GSTR-1',cp2.id).drTs||''):''];RTS.forEach(rt=>{if(cp2){const f=gF(c,rt,cp2.id);row.push(f.st||'',f.dof||'',f.rem||'');}else{row.push('N/A','','');}});rows.push(row);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Monthly_Save_'+periodName.replace(/\s/g,'_')+'.csv';a.click();const btn=event.target;const orig=btn.innerHTML;btn.innerHTML='✓ Saved!';btn.style.background='var(--ac2)';setTimeout(()=>{btn.innerHTML=orig;btn.style.background='';},1800);}
+function exportCSV(){const p=aP();const rows=[['Code','Client','GSTIN','Freq','Batch','Responsible','Data Recv','Recv Time',aRT+' Status','Date Filed','Remarks']];clients.forEach((c,i)=>{const cp2=gPc(c);const f=cp2?gF(c,aRT,cp2.id):{st:'N/A',dof:'',dr:'N/A',drTs:'',rem:''};const bl=batchLetter(c.batch);const cc=clientCode(c)||i+1;rows.push([cc,c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch>0?'Batch '+(bl||c.batch):'Unassigned',c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'',f.dr,f.drTs||'',f.st,f.dof||'',f.rem||'']);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Tracker_'+p.l+'.csv';a.click();}
+function saveMonthExcel(){const p=aP();const periodName=(aPT==='M'?MP[aPi].l:QP[aPi].l)+' '+FY_LABEL;const headers=['Code','Client Name','GSTIN','Frequency','Batch','Responsible Person','Data Received','Data Recv Timestamp','GSTR-1 Status','GSTR-1 Date Filed','GSTR-1 Remarks','GSTR-3B Status','GSTR-3B Date Filed','GSTR-3B Remarks','GSTR-2B Status','GSTR-2B Date Filed','GSTR-2B Remarks'];const rows=[headers];clients.forEach((c,i)=>{const cp2=gPc(c);const bl=batchLetter(c.batch);const cc=clientCode(c)||i+1;const row=[cc,c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch>0?'Batch '+(bl||c.batch):'Unassigned',cp2?(gF(c,'GSTR-1',cp2.id).dr||'No'):'N/A',cp2?(gF(c,'GSTR-1',cp2.id).drTs||''):''];RTS.forEach(rt=>{if(cp2){const f=gF(c,rt,cp2.id);row.push(f.st||'',f.dof||'',f.rem||'');}else{row.push('N/A','','');}});rows.push(row);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Monthly_Save_'+periodName.replace(/\s/g,'_')+'.csv';a.click();const btn=event.target;const orig=btn.innerHTML;btn.innerHTML='✓ Saved!';btn.style.background='var(--ac2)';setTimeout(()=>{btn.innerHTML=orig;btn.style.background='';},1800);}
 function exportMonthReport(){const p=aP();const pLabel=(aPT==='M'?p.l:p.l)+' '+FY_LABEL;const lines=['GST FILING COMPLETION REPORT','Period: '+pLabel,'Generated: '+new Date().toLocaleDateString('en-IN'),''];RTS.forEach(rt=>{let filed=0,tot=0;clients.forEach(c=>{const pp=gPc(c,aPT,aPi);if(!pp)return;tot++;if(isFin(rt,gF(c,rt,pp.id).st))filed++;});lines.push(rt+': '+filed+'/'+tot+' filed ('+(tot?Math.round(filed/tot*100):0)+'%)');});lines.push('','── PENDING (GSTR-1 not filed) ──');clients.forEach(c=>{const pp=gPc(c,aPT,aPi);if(!pp)return;const f=gF(c,'GSTR-1',pp.id);if(!isFin('GSTR-1',f.st))lines.push(c.name+' | '+c.gstin+' | '+f.st);});const blob=new Blob([lines.join('\n')],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='GST_Report_'+pLabel.replace(/\s/g,'_')+'.txt';a.click();showToast('📊 Report exported!');}
 
 // ── PAGINATION ──
