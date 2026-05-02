@@ -754,7 +754,6 @@ const CLIENT_COLS = [
   { name: 'Batch', number: {} },
   { name: 'Urgent', boolean: {} },
   { name: 'HistoryJSON', text: { maxLength: 50000 } },
-  { name: 'ClientCode', text: {} },
 ];
 const FILING_COLS = [
   { name: 'ClientSPId', number: {} },
@@ -798,23 +797,6 @@ function nextCodeInBatch(batchNum){
   const used=new Set(clients.filter(c=>c.batch===batchNum&&c.clientCode).map(c=>c.clientCode));
   for(let n=1;n<=999;n++){const code=bl+n;if(!used.has(code))return code;}
   return null;
-}
-
-// Sort clients by batch (A→E), then by numeric part of code, then by SP list order (unassigned last)
-function sortedClients(list){
-  // Build a position map based on original SP order
-  const posMap=new Map();
-  list.forEach((c,i)=>posMap.set(c.id,i));
-  return [...list].sort((a,b)=>{
-    const ba=a.batch||99,bb=b.batch||99;
-    if(ba!==bb)return ba-bb;
-    // Same batch — sort by numeric part of code
-    const na=parseInt((a.clientCode||'').replace(/\D/g,''))||9999;
-    const nb=parseInt((b.clientCode||'').replace(/\D/g,''))||9999;
-    if(na!==nb)return na-nb;
-    // Same code (both unassigned within batch) — preserve original SP order
-    return (posMap.get(a.id)||0)-(posMap.get(b.id)||0);
-  });
 }
 
 async function loadAllData() {
@@ -1497,7 +1479,7 @@ function sortInd(col) {
 }
 
 function applySort(list) {
-  if (!sortCol) return sortedClients(list); // default: Batch A→E then code number
+  if (!sortCol) return list; // no sort = raw SharePoint order
   const qe = isQEnd(aPT, aPi) && aPT === 'M';
   return [...list].sort((a, b) => {
     let va = '', vb = '';
@@ -1910,7 +1892,7 @@ function openStmt(cid){
 // ══════════════════════════════════════════
 function gFiltC(){const q=(document.getElementById('CS')?.value||'').toLowerCase(),bf=document.getElementById('CB')?.value||'',ff=document.getElementById('CF')?.value||'';return clients.filter(c=>{if(q&&!c.name.toLowerCase().includes(q)&&!c.gstin.toLowerCase().includes(q))return false;if(bf!==''){if(c.batch!==(parseInt(bf)||0))return false;}if(ff&&c.freq!==ff)return false;return true;});}
 function renderClients(){
-  const filt=sortedClients(gFiltC()),tot=filt.length,totPg=Math.max(1,Math.ceil(tot/PS));
+  const filt=gFiltC(),tot=filt.length,totPg=Math.max(1,Math.ceil(tot/PS));
   if(cp>totPg)cp=totPg;const page=filt.slice((cp-1)*PS,cp*PS);
   document.getElementById('cCt').textContent=clients.length+' total · '+tot+' shown';
   if(!page.length){document.getElementById('CTB').innerHTML='';document.getElementById('CE').style.display='block';}
@@ -2107,8 +2089,8 @@ function dlTemplate(){const csv='"Client Name","GSTIN","Frequency","Batch"\n"Exa
 // ══════════════════════════════════════════
 //  EXPORTS
 // ══════════════════════════════════════════
-function exportCSV(){const p=aP();const rows=[['Code','Client','GSTIN','Freq','Batch','Responsible','Data Recv','Recv Time',aRT+' Status','Date Filed','Remarks']];sortedClients(clients).forEach((c,i)=>{const cp2=gPc(c);const f=cp2?gF(c,aRT,cp2.id):{st:'N/A',dof:'',dr:'N/A',drTs:'',rem:''};const bl=batchLetter(c.batch);rows.push([c.clientCode||(i+1),c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch>0?'Batch '+(bl||c.batch):'Unassigned',c.batch>0?(persons[c.batch-1]||'Batch '+(bl||c.batch)):'',f.dr,f.drTs||'',f.st,f.dof||'',f.rem||'']);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Tracker_'+p.l+'.csv';a.click();}
-function saveMonthExcel(){const p=aP();const periodName=(aPT==='M'?MP[aPi].l:QP[aPi].l)+' '+FY_LABEL;const headers=['Code','Client Name','GSTIN','Frequency','Batch','Responsible Person','Data Received','Data Recv Timestamp','GSTR-1 Status','GSTR-1 Date Filed','GSTR-1 Remarks','GSTR-3B Status','GSTR-3B Date Filed','GSTR-3B Remarks','GSTR-2B Status','GSTR-2B Date Filed','GSTR-2B Remarks'];const rows=[headers];sortedClients(clients).forEach((c,i)=>{const cp2=gPc(c);const bl=batchLetter(c.batch);const row=[c.clientCode||(i+1),c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch>0?'Batch '+(bl||c.batch):'Unassigned',c.batch>0?(persons[c.batch-1]||'Batch '+(bl||c.batch)):'Not Assigned',cp2?(gF(c,'GSTR-1',cp2.id).dr||'No'):'N/A',cp2?(gF(c,'GSTR-1',cp2.id).drTs||''):''];RTS.forEach(rt=>{if(cp2){const f=gF(c,rt,cp2.id);row.push(f.st||'',f.dof||'',f.rem||'');}else{row.push('N/A','','');}});rows.push(row);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Monthly_Save_'+periodName.replace(/\s/g,'_')+'.csv';a.click();const btn=event.target;const orig=btn.innerHTML;btn.innerHTML='✓ Saved!';btn.style.background='var(--ac2)';setTimeout(()=>{btn.innerHTML=orig;btn.style.background='';},1800);}
+function exportCSV(){const p=aP();const rows=[['Code','Client','GSTIN','Freq','Batch','Responsible','Data Recv','Recv Time',aRT+' Status','Date Filed','Remarks']];clients.forEach((c,i)=>{const cp2=gPc(c);const f=cp2?gF(c,aRT,cp2.id):{st:'N/A',dof:'',dr:'N/A',drTs:'',rem:''};const bl=batchLetter(c.batch);rows.push([c.clientCode||(i+1),c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch>0?'Batch '+(bl||c.batch):'Unassigned',c.batch>0?(persons[c.batch-1]||'Batch '+(bl||c.batch)):'',f.dr,f.drTs||'',f.st,f.dof||'',f.rem||'']);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Tracker_'+p.l+'.csv';a.click();}
+function saveMonthExcel(){const p=aP();const periodName=(aPT==='M'?MP[aPi].l:QP[aPi].l)+' '+FY_LABEL;const headers=['Code','Client Name','GSTIN','Frequency','Batch','Responsible Person','Data Received','Data Recv Timestamp','GSTR-1 Status','GSTR-1 Date Filed','GSTR-1 Remarks','GSTR-3B Status','GSTR-3B Date Filed','GSTR-3B Remarks','GSTR-2B Status','GSTR-2B Date Filed','GSTR-2B Remarks'];const rows=[headers];clients.forEach((c,i)=>{const cp2=gPc(c);const bl=batchLetter(c.batch);const row=[c.clientCode||(i+1),c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch>0?'Batch '+(bl||c.batch):'Unassigned',c.batch>0?(persons[c.batch-1]||'Batch '+(bl||c.batch)):'Not Assigned',cp2?(gF(c,'GSTR-1',cp2.id).dr||'No'):'N/A',cp2?(gF(c,'GSTR-1',cp2.id).drTs||''):''];RTS.forEach(rt=>{if(cp2){const f=gF(c,rt,cp2.id);row.push(f.st||'',f.dof||'',f.rem||'');}else{row.push('N/A','','');}});rows.push(row);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Monthly_Save_'+periodName.replace(/\s/g,'_')+'.csv';a.click();const btn=event.target;const orig=btn.innerHTML;btn.innerHTML='✓ Saved!';btn.style.background='var(--ac2)';setTimeout(()=>{btn.innerHTML=orig;btn.style.background='';},1800);}
 function exportMonthReport(){const p=aP();const pLabel=(aPT==='M'?p.l:p.l)+' '+FY_LABEL;const lines=['GST FILING COMPLETION REPORT','Period: '+pLabel,'Generated: '+new Date().toLocaleDateString('en-IN'),''];RTS.forEach(rt=>{let filed=0,tot=0;clients.forEach(c=>{const pp=gPc(c,aPT,aPi);if(!pp)return;tot++;if(isFin(rt,gF(c,rt,pp.id).st))filed++;});lines.push(rt+': '+filed+'/'+tot+' filed ('+(tot?Math.round(filed/tot*100):0)+'%)');});lines.push('','── PENDING (GSTR-1 not filed) ──');clients.forEach(c=>{const pp=gPc(c,aPT,aPi);if(!pp)return;const f=gF(c,'GSTR-1',pp.id);if(!isFin('GSTR-1',f.st))lines.push(c.name+' | '+c.gstin+' | '+f.st);});const blob=new Blob([lines.join('\n')],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='GST_Report_'+pLabel.replace(/\s/g,'_')+'.txt';a.click();showToast('📊 Report exported!');}
 
 // ── PAGINATION ──
