@@ -800,16 +800,20 @@ function nextCodeInBatch(batchNum){
   return null;
 }
 
-// Sort clients by batch (A→E), then by numeric part of code, then alphabetically (unassigned last)
+// Sort clients by batch (A→E), then by numeric part of code, then by SP list order (unassigned last)
 function sortedClients(list){
+  // Build a position map based on original SP order
+  const posMap=new Map();
+  list.forEach((c,i)=>posMap.set(c.id,i));
   return [...list].sort((a,b)=>{
     const ba=a.batch||99,bb=b.batch||99;
     if(ba!==bb)return ba-bb;
-    // Both same batch — sort by numeric part of code
+    // Same batch — sort by numeric part of code
     const na=parseInt((a.clientCode||'').replace(/\D/g,''))||9999;
     const nb=parseInt((b.clientCode||'').replace(/\D/g,''))||9999;
     if(na!==nb)return na-nb;
-    return a.name.toLowerCase().localeCompare(b.name.toLowerCase(),'en');
+    // Same code (both unassigned within batch) — preserve original SP order
+    return (posMap.get(a.id)||0)-(posMap.get(b.id)||0);
   });
 }
 
@@ -1964,27 +1968,50 @@ async function runBulkCodeAssignment(){
   const toAssign=clients.filter(c=>c.batch>0&&!c.clientCode);
   if(!toAssign.length){showToast('✓ All batched clients already have codes','var(--ac2)');renderSettings();return;}
 
-  // For each batch, sort candidates alphabetically and assign next available codes
+  // Group by batch — preserve SharePoint list order (no alphabetical sort)
   const byBatch={};
   toAssign.forEach(c=>{if(!byBatch[c.batch])byBatch[c.batch]=[];byBatch[c.batch].push(c);});
-  Object.keys(byBatch).forEach(b=>{byBatch[b].sort((a,z)=>a.name.toLowerCase().localeCompare(z.name.toLowerCase(),'en'));});
+  // Process batches in order A→E (1→5)
+  const batchKeys=Object.keys(byBatch).map(Number).sort((a,b)=>a-b);
 
-  let count=0;
-  showSaving('Assigning client codes...');
-  for(const [bStr,list] of Object.entries(byBatch)){
-    const b=parseInt(bStr);
+  let count=0,errors=0;
+  document.getElementById('bSum').innerHTML+='<div id="codeProgress" style="margin-top:8px;font-size:11px;color:var(--mu)">Starting...</div>';
+
+  for(const b of batchKeys){
+    const list=byBatch[b];
     for(const c of list){
       const code=nextCodeInBatch(b);
       if(!code)continue;
-      c.clientCode=code;
-      addHistory(c,'Client code assigned: '+code);
-      await spSaveClient(c,false).catch(e=>console.error('Code assign error',e));
-      count++;
+      c.clientCode=code; // set in memory first so nextCodeInBatch sees it for next iteration
+      document.getElementById('codeProgress')&&(document.getElementById('codeProgress').textContent='Saving '+code+' → '+c.name+'...');
+      try{
+        // PATCH only the ClientCode field directly — avoids HistoryJSON length issues
+        const token=await getToken();
+        const r=await fetch('https://graph.microsoft.com/v1.0/sites/'+siteId+'/lists/'+listIds.Clients+'/items/'+c.id,{
+          method:'PATCH',
+          headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+          body:JSON.stringify({fields:{ClientCode:code}})
+        });
+        if(!r.ok){
+          // Retry once after 1.5s (SP column may need time to propagate)
+          await new Promise(res=>setTimeout(res,1500));
+          const r2=await fetch('https://graph.microsoft.com/v1.0/sites/'+siteId+'/lists/'+listIds.Clients+'/items/'+c.id,{
+            method:'PATCH',
+            headers:{'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+            body:JSON.stringify({fields:{ClientCode:code}})
+          });
+          if(!r2.ok){c.clientCode='';errors++;continue;}
+        }
+        count++;
+      }catch(e){c.clientCode='';errors++;console.error('Code assign error for '+c.name,e);}
     }
   }
+
+  const prog=document.getElementById('codeProgress');if(prog)prog.remove();
   hideSaving();
   renderSettings();renderClients();renderTracker();
-  showToast('✓ '+count+' client'+(count!==1?'s':'')+' assigned codes');
+  if(errors>0)showToast('⚠ '+count+' assigned, '+errors+' failed — retry','var(--ac3)');
+  else showToast('✓ '+count+' client'+(count!==1?'s':'')+' assigned codes');
 }
 
 // ══════════════════════════════════════════
