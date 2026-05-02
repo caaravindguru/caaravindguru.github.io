@@ -754,6 +754,7 @@ const CLIENT_COLS = [
   { name: 'Batch', number: {} },
   { name: 'Urgent', boolean: {} },
   { name: 'HistoryJSON', text: { maxLength: 50000 } },
+  { name: 'ClientCode', text: {} },
 ];
 const FILING_COLS = [
   { name: 'ClientSPId', number: {} },
@@ -790,14 +791,26 @@ let filingMap = {}; // key: "clientSPId|RT|periodId" -> { spId, st, dr, drTs, do
 // ── BATCH LABEL HELPERS ──
 const BATCH_LABELS = ['A','B','C','D','E'];
 function batchLetter(b){ return (b>=1&&b<=5)?BATCH_LABELS[b-1]:null; }
-// Returns client code like A1, A2, B1 — ordered within each batch alphabetically by name
-function clientCode(c){
-  const bl=batchLetter(c.batch);
-  if(!bl)return null;
-  // Build sorted list of clients in same batch to assign sequential number
-  const batchClients=[...clients].filter(x=>x.batch===c.batch).sort((a,z)=>a.name.toLowerCase().localeCompare(z.name.toLowerCase(),'en'));
-  const idx=batchClients.findIndex(x=>x.id===c.id);
-  return bl+(idx>=0?idx+1:'?');
+
+// Next available code in a batch (e.g. if A1,A2,A4 exist → returns A3 to fill gap, else A5)
+function nextCodeInBatch(batchNum){
+  const bl=batchLetter(batchNum);if(!bl)return null;
+  const used=new Set(clients.filter(c=>c.batch===batchNum&&c.clientCode).map(c=>c.clientCode));
+  for(let n=1;n<=999;n++){const code=bl+n;if(!used.has(code))return code;}
+  return null;
+}
+
+// Sort clients by batch (A→E), then by numeric part of code, then alphabetically (unassigned last)
+function sortedClients(list){
+  return [...list].sort((a,b)=>{
+    const ba=a.batch||99,bb=b.batch||99;
+    if(ba!==bb)return ba-bb;
+    // Both same batch — sort by numeric part of code
+    const na=parseInt((a.clientCode||'').replace(/\D/g,''))||9999;
+    const nb=parseInt((b.clientCode||'').replace(/\D/g,''))||9999;
+    if(na!==nb)return na-nb;
+    return a.name.toLowerCase().localeCompare(b.name.toLowerCase(),'en');
+  });
 }
 
 async function loadAllData() {
@@ -813,6 +826,7 @@ async function loadAllData() {
       batch: parseInt(f.Batch) || 0,
       urgent: !!f.Urgent,
       history: safeJSON(f.HistoryJSON, []),
+      clientCode: f.ClientCode || '',
     };
   });
   if (clients.length) nid = clients.length + 1;
@@ -875,6 +889,7 @@ async function spSaveClient(c, isNew) {
     Batch: c.batch,
     Urgent: c.urgent,
     HistoryJSON: JSON.stringify(c.history || []),
+    ClientCode: c.clientCode || '',
   };
   let spId;
   if (isNew) {
@@ -1054,7 +1069,7 @@ function pNameForPeriod(b, pid) {
   // 4. Fall back to global persons array (Settings)
   return persons[b-1] || '';
 }
-function pName(b){return b>0&&persons[b-1]?persons[b-1]:'Batch '+(batchLetter(b)||b);}
+function pName(b){return b>0&&persons[b-1]?persons[b-1]:'Person '+b;}
 
 function promptAllocPassword(){
   document.getElementById('allocPassInput').value='';
@@ -1079,8 +1094,7 @@ function openAllocMo() {
   const alloc = periodAllocMap[p.id] || ['','','','',''];
   let h = '';
   for (let i = 0; i < 5; i++) {
-    const bl=BATCH_LABELS[i];
-    h += '<div class="per" style="margin-bottom:8px"><span class="pix">B'+bl+'</span><input class="fi" id="ap'+i+'" placeholder="Person name for Batch '+bl+'..." value="'+(alloc[i]||'')+'"/></div>';
+    h += '<div class="per" style="margin-bottom:8px"><span class="pix">B'+BATCH_LABELS[i]+'</span><input class="fi" id="ap'+i+'" placeholder="Person name for Batch '+BATCH_LABELS[i]+'..." value="'+(alloc[i]||'')+'"/></div>';
   }
   // Show note if this is a QE month — allocation will apply to quarterly filers too
   if (aPT === 'M') {
@@ -1226,7 +1240,7 @@ function buildSlackSnapshot(rt) {
     if (bt > 0) {
       const pp = Math.round(bf/bt*100);
       const pBar = pp===100?'✅':(pp>=70?'🟡':'🔴');
-      personLines.push(`${pBar} *${pn}* (Batch ${batchLetter(b)||b}): ${bf}/${bt} filed (${pp}%)`);
+      personLines.push(`${pBar} *${pn}*: ${bf}/${bt} filed (${pp}%)`);
     }
   }
 
@@ -1444,7 +1458,7 @@ function renderDash(){
   const row1Cells=row1Statuses.map((s,si)=>'<div class="psi"><div class="v" style="color:'+(statCols[si]||'var(--mu)')+'">'+bsCnt[s]+'</div><div class="l" style="font-size:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+s+'">'+s.replace('Completed - ','')+'</div></div>').join('');
   const row2Cols=hasPP?'1fr 1fr':'1fr';
   const row2Cells=(hasPP?'<div class="psi"><div class="v" style="color:var(--ac3)">'+(bsCnt['Payment Pending']||0)+'</div><div class="l">Payment Pending</div></div>':'')+'<div class="psi"><div class="v" style="color:var(--ac2)">'+bf+'</div><div class="l">Filed</div></div>';
-  pH+='<div class="pc"><div class="pn">'+pn+'</div><div class="psb">Batch '+(batchLetter(b)||b)+' · '+bc.length+' clients</div>'
+  pH+='<div class="pc"><div class="pn">'+pn+'</div><div class="psb">Batch '+b+' · '+bc.length+' clients</div>'
     +'<div style="display:grid;grid-template-columns:repeat('+(row1Statuses.length+1)+',1fr);gap:3px;margin-top:6px">'
     +'<div class="psi"><div class="v" style="color:var(--ac2)">'+bdr+'</div><div class="l">Data Recv</div></div>'
     +row1Cells+'</div>'
@@ -1479,7 +1493,7 @@ function sortInd(col) {
 }
 
 function applySort(list) {
-  if (!sortCol) return list;
+  if (!sortCol) return sortedClients(list); // default: Batch A→E then code number
   const qe = isQEnd(aPT, aPi) && aPT === 'M';
   return [...list].sort((a, b) => {
     let va = '', vb = '';
@@ -1613,11 +1627,11 @@ function renderTracker(){
   else{
     document.getElementById('TE').style.display='none';
     document.getElementById('TB').innerHTML=page.map((c,idx)=>{
-      const p=qe?tGetPeriod(c):gPc(c);const gi=(tp-1)*PS+idx+1;
+      const p=qe?tGetPeriod(c):gPc(c);
+      const rowNum=c.clientCode||(c.batch>0?(batchLetter(c.batch)||'?')+'?':((tp-1)*PS+idx+1));
       const curPid=p?p.id:(aP().id);const allocName=c.batch>0?pNameForPeriod(c.batch,curPid):'';
       const bl=batchLetter(c.batch);
       const bL=c.batch>0?'<span class="bb">'+(bl||'B'+c.batch)+(allocName?' '+allocName:'')+'</span>':'<span style="color:var(--mu2);font-size:9px">—</span>';
-      const cc=clientCode(c);const rowNum=cc||gi;
       let periodCell=qe?'<td><span style="font-size:9px;padding:2px 7px;border-radius:4px;font-weight:600;'+(c.freq==='Q'?'background:rgba(52,211,153,.1);color:var(--ac2);border:1px solid rgba(52,211,153,.25)':'background:rgba(91,141,240,.1);color:var(--ac);border:1px solid rgba(91,141,240,.25)')+'">'+(p?p.l:'N/A')+(c.freq==='Q'?' (QRMP)':'')+'</span></td>':'';
       let stC='',drC='',tsC='',dofC='',awC='',remC='',dlC='',actC='',g2bC='';
       if(!p){stC='<span style="color:var(--mu2);font-size:9px">N/A</span>';drC=tsC=dofC=awC='<span style="color:var(--mu2);font-size:9px">—</span>';remC='—';dlC='';g2bC='<span style="color:var(--mu2);font-size:9px">—</span>';}
@@ -1655,7 +1669,7 @@ function renderTracker(){
         actC='<button class="btn bo" style="font-size:9px;padding:3px 7px" onclick="openHist(\''+c.id+'\')" title="History">📋</button><button class="btn bo" style="font-size:9px;padding:3px 7px;margin-left:3px" onclick="openStmt(\''+c.id+'\')" title="Statement">🖨</button>';
       }
       const rowBg=qe&&c.freq==='Q'?'style="background:rgba(52,211,153,.025)"':'';
-      return '<tr id="tr'+c.id+'" data-cid="'+c.id+'" '+rowBg+'><td><input type="checkbox" '+(sel.has(c.id)?'checked':'')+' onchange="togSel(\''+c.id+'\',this)"/></td><td class="rn">'+rowNum+'</td><td><div><div class="cn">'+c.name+'</div><div class="cg2">'+c.gstin+'</div></div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Mon':'Qtr')+'</span></td><td>'+bL+'</td>'+periodCell+'<td>'+dlC+'</td>'+(is3B?'<td>'+g2bC+'</td>':'')+'<td>'+drC+'</td><td>'+tsC+'</td><td>'+stC+'</td><td>'+awC+'</td><td>'+dofC+'</td><td>'+remC+'</td><td>'+actC+'</td></tr>';
+      return '<tr id="tr'+c.id+'" data-cid="'+c.id+'" '+rowBg+'><td><input type="checkbox" '+(sel.has(c.id)?'checked':'')+' onchange="togSel(\''+c.id+'\',this)"/></td><td class="rn" style="font-weight:700;color:var(--ac)">'+rowNum+'</td><td><div><div class="cn">'+c.name+'</div><div class="cg2">'+c.gstin+'</div></div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Mon':'Qtr')+'</span></td><td>'+bL+'</td>'+periodCell+'<td>'+dlC+'</td>'+(is3B?'<td>'+g2bC+'</td>':'')+'<td>'+drC+'</td><td>'+tsC+'</td><td>'+stC+'</td><td>'+awC+'</td><td>'+dofC+'</td><td>'+remC+'</td><td>'+actC+'</td></tr>';
     }).join('');
     kbPageRows=page;applyKBFocus(page);
   }
@@ -1892,11 +1906,15 @@ function openStmt(cid){
 // ══════════════════════════════════════════
 function gFiltC(){const q=(document.getElementById('CS')?.value||'').toLowerCase(),bf=document.getElementById('CB')?.value||'',ff=document.getElementById('CF')?.value||'';return clients.filter(c=>{if(q&&!c.name.toLowerCase().includes(q)&&!c.gstin.toLowerCase().includes(q))return false;if(bf!==''){if(c.batch!==(parseInt(bf)||0))return false;}if(ff&&c.freq!==ff)return false;return true;});}
 function renderClients(){
-  const filt=gFiltC(),tot=filt.length,totPg=Math.max(1,Math.ceil(tot/PS));
+  const filt=sortedClients(gFiltC()),tot=filt.length,totPg=Math.max(1,Math.ceil(tot/PS));
   if(cp>totPg)cp=totPg;const page=filt.slice((cp-1)*PS,cp*PS);
   document.getElementById('cCt').textContent=clients.length+' total · '+tot+' shown';
   if(!page.length){document.getElementById('CTB').innerHTML='';document.getElementById('CE').style.display='block';}
-  else{document.getElementById('CE').style.display='none';document.getElementById('CTB').innerHTML=page.map((c,i)=>{const gi=(cp-1)*PS+i+1;const cc=clientCode(c);const rowNum=cc||gi;const bl=batchLetter(c.batch);return'<tr><td><input type="checkbox" '+(cSel.has(c.id)?'checked':'')+' onchange="togCSel(\''+c.id+'\',this)"/></td><td class="rn">'+rowNum+'</td><td><div class="cn">'+c.name+'</div></td><td><div class="cg2">'+c.gstin+'</div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Monthly':'Quarterly')+'</span></td><td>'+(c.batch>0?'<span class="bb">Batch '+(bl||c.batch)+'</span>':'<span style="color:var(--mu2);font-size:9px">—</span>')+'</td><td style="font-size:10px;color:var(--mu)">'+(c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'—')+'</td><td><button class="btn bo" style="margin-right:4px" onclick="openEdit(\''+c.id+'\')">Edit</button><button class="btn bo" style="margin-right:4px" onclick="openStmt(\''+c.id+'\')">🖨</button><button class="btn bdd" onclick="openDel(\''+c.id+'\')">Del</button></td></tr>';}).join('');}
+  else{document.getElementById('CE').style.display='none';document.getElementById('CTB').innerHTML=page.map((c,i)=>{
+    const bl=batchLetter(c.batch);
+    const rowNum=c.clientCode||(c.batch>0?(bl||'?')+'?':((cp-1)*PS+i+1));
+    return'<tr><td><input type="checkbox" '+(cSel.has(c.id)?'checked':'')+' onchange="togCSel(\''+c.id+'\',this)"/></td><td class="rn" style="font-weight:700;color:var(--ac)">'+rowNum+'</td><td><div class="cn">'+c.name+'</div></td><td><div class="cg2">'+c.gstin+'</div></td><td><span class="fb f'+c.freq+'">'+(c.freq==='M'?'Monthly':'Quarterly')+'</span></td><td>'+(c.batch>0?'<span class="bb">Batch '+(bl||c.batch)+'</span>':'<span style="color:var(--mu2);font-size:9px">—</span>')+'</td><td style="font-size:10px;color:var(--mu)">'+(c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'—')+'</td><td><button class="btn bo" style="margin-right:4px" onclick="openEdit(\''+c.id+'\')">Edit</button><button class="btn bo" style="margin-right:4px" onclick="openStmt(\''+c.id+'\')">🖨</button><button class="btn bdd" onclick="openDel(\''+c.id+'\')">Del</button></td></tr>';
+  }).join('');}
   const csa=document.getElementById('CSA');if(csa){const pi=page.map(c=>c.id);csa.checked=pi.length>0&&pi.every(id=>cSel.has(id));csa.indeterminate=pi.some(id=>cSel.has(id))&&!csa.checked;}
   renderCBulk();renderPgn(tot,totPg,'c');
 }
@@ -1924,7 +1942,10 @@ async function saveClient(){
   document.getElementById('dupErr').style.display='none';
   document.getElementById('saveClientBtn').disabled=true;document.getElementById('saveClientBtn').textContent='Saving...';
   if(eid){const c=clients.find(x=>x.id===eid);if(c){c.name=n;c.gstin=g;c.batch=b;if(c.freq!==f)c.freq=f;addHistory(c,'Client details updated');await spSaveClient(c,false).catch(e=>showToast(e.message,'var(--ac4)'));}}
-  else{const nc={id:'new_'+Date.now(),name:n,gstin:g,freq:f,batch:b,urgent:false,history:[{ts:nowTs(),msg:'Client added',who:currentUser?.name||'Staff'}]};const spId=await spSaveClient(nc,true).catch(e=>{showToast(e.message,'var(--ac4)');return null;});if(spId){nc.id=spId;clients.push(nc);}}
+  else{const nc={id:'new_'+Date.now(),name:n,gstin:g,freq:f,batch:b,urgent:false,clientCode:'',history:[{ts:nowTs(),msg:'Client added',who:currentUser?.name||'Staff'}]};
+    // Auto-assign next available code if batch is set
+    if(b>0){nc.clientCode=nextCodeInBatch(b)||'';}
+    const spId=await spSaveClient(nc,true).catch(e=>{showToast(e.message,'var(--ac4)');return null;});if(spId){nc.id=spId;clients.push(nc);}}
   document.getElementById('saveClientBtn').disabled=false;document.getElementById('saveClientBtn').textContent='Save to SharePoint';
   closeMo();renderClients();renderDash();
 }
@@ -1936,10 +1957,57 @@ async function confirmDel(){
 }
 
 // ══════════════════════════════════════════
+//  CLIENT CODE BULK ASSIGNMENT
+// ══════════════════════════════════════════
+async function runBulkCodeAssignment(){
+  // Only fill blanks — never overwrite existing codes
+  const toAssign=clients.filter(c=>c.batch>0&&!c.clientCode);
+  if(!toAssign.length){showToast('✓ All batched clients already have codes','var(--ac2)');renderSettings();return;}
+
+  // For each batch, sort candidates alphabetically and assign next available codes
+  const byBatch={};
+  toAssign.forEach(c=>{if(!byBatch[c.batch])byBatch[c.batch]=[];byBatch[c.batch].push(c);});
+  Object.keys(byBatch).forEach(b=>{byBatch[b].sort((a,z)=>a.name.toLowerCase().localeCompare(z.name.toLowerCase(),'en'));});
+
+  let count=0;
+  showSaving('Assigning client codes...');
+  for(const [bStr,list] of Object.entries(byBatch)){
+    const b=parseInt(bStr);
+    for(const c of list){
+      const code=nextCodeInBatch(b);
+      if(!code)continue;
+      c.clientCode=code;
+      addHistory(c,'Client code assigned: '+code);
+      await spSaveClient(c,false).catch(e=>console.error('Code assign error',e));
+      count++;
+    }
+  }
+  hideSaving();
+  renderSettings();renderClients();renderTracker();
+  showToast('✓ '+count+' client'+(count!==1?'s':'')+' assigned codes');
+}
+
+// ══════════════════════════════════════════
 //  SETTINGS
 // ══════════════════════════════════════════
 function renderSettings(){
-  let bH='';for(let b=0;b<=5;b++){const bc=clients.filter(c=>b===0?(!c.batch||c.batch===0):c.batch===b),bl=batchLetter(b),lb=b===0?'Unassigned':'Batch '+(bl||b);bH+='<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)"><span style="font-size:11px">'+lb+'</span><span style="font-weight:800;font-size:15px;color:'+(b===0?'var(--mu)':'var(--ac)')+'">'+bc.length+'</span></div>';}
+  const BATCH_LETTERS=['A','B','C','D','E'];
+  let bH='';
+  for(let b=0;b<=5;b++){
+    const bc=clients.filter(c=>b===0?(!c.batch||c.batch===0):c.batch===b);
+    const bl=b>0?BATCH_LETTERS[b-1]:null;
+    const lb=b===0?'Unassigned':'Batch '+(bl||b);
+    bH+='<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)"><span style="font-size:11px">'+lb+'</span><span style="font-weight:800;font-size:15px;color:'+(b===0?'var(--mu)':'var(--ac)')+'">'+bc.length+'</span></div>';
+  }
+  // Code assignment status
+  const coded=clients.filter(c=>c.batch>0&&c.clientCode).length;
+  const needCode=clients.filter(c=>c.batch>0&&!c.clientCode).length;
+  bH+='<div style="margin-top:12px;padding:10px;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r)">';
+  bH+='<div style="font-size:10px;font-weight:700;margin-bottom:6px;color:var(--tx)">📋 Client Codes</div>';
+  bH+='<div style="font-size:11px;color:var(--mu);margin-bottom:8px">'+coded+' assigned · <span style="color:'+(needCode>0?'var(--ac3)':'var(--ac2)')+'">'+needCode+' unassigned</span></div>';
+  bH+='<button class="btn bp" style="font-size:10px;padding:6px 12px" onclick="runBulkCodeAssignment()">🔢 Assign Missing Codes</button>';
+  bH+='<div style="font-size:9px;color:var(--mu);margin-top:6px">Only fills blanks — existing codes are never changed.</div>';
+  bH+='</div>';
   document.getElementById('bSum').innerHTML=bH;
   // Show webhook status (masked) without exposing the URL
   const inp=document.getElementById('slackWebhookInput');
@@ -1948,6 +2016,8 @@ function renderSettings(){
   if(st)st.textContent=slackWebhook?'✓ Webhook configured':'Not configured';
   // Render manager name inputs
   for(let i=0;i<4;i++){const e=document.getElementById('mgr'+i);if(e)e.value=managerNames[i]||'';}
+  // Render person name inputs with values
+  for(let i=0;i<5;i++){const e=document.getElementById('p'+i);if(e)e.value=persons[i]||'';}
 }
 async function saveSlackWebhook(){
   const val=document.getElementById('slackWebhookInput').value.trim();
@@ -1995,7 +2065,7 @@ function parseCSVText(text){
   for(let i=1;i<lines.length;i++){if(!lines[i].trim())continue;const row=parseRow(lines[i]);const name=(row[colMap.name]||'').replace(/^"|"$/g,'').trim();if(!name){skip++;previewRows.push({status:'skip',msg:'Row '+(i+1)+': Empty name'});continue;}
   const gstin=colMap.gstin!==undefined?(row[colMap.gstin]||'').replace(/^"|"$/g,'').trim().toUpperCase():'';let freq='M';if(colMap.freq!==undefined){const fv=(row[colMap.freq]||'').replace(/^"|"$/g,'').trim().toUpperCase();if(fv==='Q'||fv.startsWith('Q'))freq='Q';}let batch=0;if(colMap.batch!==undefined){const bv=parseInt((row[colMap.batch]||'').replace(/^"|"$/g,''));if(bv>=1&&bv<=5)batch=bv;}
   const dup=clients.find(c=>c.name.toLowerCase()===name.toLowerCase()||(gstin&&c.gstin===gstin));if(dup){skip++;previewRows.push({status:'warn',msg:'Row '+(i+1)+': "'+name+'" — duplicate'});continue;}
-  impParsed.push({name,gstin,freq,batch});ok++;previewRows.push({status:'ok',msg:'Row '+(i+1)+': '+name+(gstin?' · '+gstin:'')+(freq==='Q'?' · Qtr':'')+(batch?' · Batch '+(batchLetter(batch)||batch):'')});}
+  impParsed.push({name,gstin,freq,batch});ok++;previewRows.push({status:'ok',msg:'Row '+(i+1)+': '+name+(gstin?' · '+gstin:'')+(freq==='Q'?' · Qtr':'')+(batch?' · Batch '+batch:'')});}
   document.getElementById('impSummary').textContent=ok+' to import · '+skip+' skipped';
   document.getElementById('impPreview').innerHTML=previewRows.map(r=>'<div class="import-row"><span class="import-'+r.status+'">'+(r.status==='ok'?'✓':r.status==='warn'?'⚠':'✗')+'</span><span>'+r.msg+'</span></div>').join('');
   document.getElementById('impPreviewWrap').style.display='block';document.getElementById('impBtn').style.display=ok>0?'inline-flex':'none';
@@ -2005,13 +2075,13 @@ async function importClients(){
   for(const c of impParsed){const nc={id:'new_'+Date.now(),name:c.name,gstin:c.gstin,freq:c.freq,batch:c.batch,urgent:false,history:[{ts:nowTs(),msg:'Imported via CSV',who:currentUser?.name||'Staff'}]};const spId=await spSaveClient(nc,true).catch(()=>null);if(spId){nc.id=spId;clients.push(nc);}}
   const cnt=impParsed.length;impParsed=[];document.getElementById('impBtn').disabled=false;document.getElementById('impBtn').textContent='✓ Import to SharePoint';closeMo();renderClients();renderDash();showToast('✓ Imported '+cnt+' client'+(cnt>1?'s':'')+'!');
 }
-function dlTemplate(){const csv='"Client Name","GSTIN","Frequency","Batch"\n"Example Traders Pvt Ltd","29AABCT1234A1Z5","M","1"\n"Sample Exports","27AABCE5678B2Z3","Q","2"\n\n"Note: Batch column accepts 1=A, 2=B, 3=C, 4=D, 5=E"';const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Import_Template.csv';a.click();}
+function dlTemplate(){const csv='"Client Name","GSTIN","Frequency","Batch"\n"Example Traders Pvt Ltd","29AABCT1234A1Z5","M","1"\n"Sample Exports","27AABCE5678B2Z3","Q","2"';const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Import_Template.csv';a.click();}
 
 // ══════════════════════════════════════════
 //  EXPORTS
 // ══════════════════════════════════════════
-function exportCSV(){const p=aP();const rows=[['Code','Client','GSTIN','Freq','Batch','Responsible','Data Recv','Recv Time',aRT+' Status','Date Filed','Remarks']];clients.forEach((c,i)=>{const cp2=gPc(c);const f=cp2?gF(c,aRT,cp2.id):{st:'N/A',dof:'',dr:'N/A',drTs:'',rem:''};const bl=batchLetter(c.batch);const cc=clientCode(c)||i+1;rows.push([cc,c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch>0?'Batch '+(bl||c.batch):'Unassigned',c.batch>0?(persons[c.batch-1]||'Person '+c.batch):'',f.dr,f.drTs||'',f.st,f.dof||'',f.rem||'']);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Tracker_'+p.l+'.csv';a.click();}
-function saveMonthExcel(){const p=aP();const periodName=(aPT==='M'?MP[aPi].l:QP[aPi].l)+' '+FY_LABEL;const headers=['Code','Client Name','GSTIN','Frequency','Batch','Responsible Person','Data Received','Data Recv Timestamp','GSTR-1 Status','GSTR-1 Date Filed','GSTR-1 Remarks','GSTR-3B Status','GSTR-3B Date Filed','GSTR-3B Remarks','GSTR-2B Status','GSTR-2B Date Filed','GSTR-2B Remarks'];const rows=[headers];clients.forEach((c,i)=>{const cp2=gPc(c);const bl=batchLetter(c.batch);const cc=clientCode(c)||i+1;const row=[cc,c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch>0?'Batch '+(bl||c.batch):'Unassigned',cp2?(gF(c,'GSTR-1',cp2.id).dr||'No'):'N/A',cp2?(gF(c,'GSTR-1',cp2.id).drTs||''):''];RTS.forEach(rt=>{if(cp2){const f=gF(c,rt,cp2.id);row.push(f.st||'',f.dof||'',f.rem||'');}else{row.push('N/A','','');}});rows.push(row);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Monthly_Save_'+periodName.replace(/\s/g,'_')+'.csv';a.click();const btn=event.target;const orig=btn.innerHTML;btn.innerHTML='✓ Saved!';btn.style.background='var(--ac2)';setTimeout(()=>{btn.innerHTML=orig;btn.style.background='';},1800);}
+function exportCSV(){const p=aP();const rows=[['Code','Client','GSTIN','Freq','Batch','Responsible','Data Recv','Recv Time',aRT+' Status','Date Filed','Remarks']];sortedClients(clients).forEach((c,i)=>{const cp2=gPc(c);const f=cp2?gF(c,aRT,cp2.id):{st:'N/A',dof:'',dr:'N/A',drTs:'',rem:''};const bl=batchLetter(c.batch);rows.push([c.clientCode||(i+1),c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch>0?'Batch '+(bl||c.batch):'Unassigned',c.batch>0?(persons[c.batch-1]||'Batch '+(bl||c.batch)):'',f.dr,f.drTs||'',f.st,f.dof||'',f.rem||'']);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Tracker_'+p.l+'.csv';a.click();}
+function saveMonthExcel(){const p=aP();const periodName=(aPT==='M'?MP[aPi].l:QP[aPi].l)+' '+FY_LABEL;const headers=['Code','Client Name','GSTIN','Frequency','Batch','Responsible Person','Data Received','Data Recv Timestamp','GSTR-1 Status','GSTR-1 Date Filed','GSTR-1 Remarks','GSTR-3B Status','GSTR-3B Date Filed','GSTR-3B Remarks','GSTR-2B Status','GSTR-2B Date Filed','GSTR-2B Remarks'];const rows=[headers];sortedClients(clients).forEach((c,i)=>{const cp2=gPc(c);const bl=batchLetter(c.batch);const row=[c.clientCode||(i+1),c.name,c.gstin,c.freq==='M'?'Monthly':'Quarterly',c.batch>0?'Batch '+(bl||c.batch):'Unassigned',c.batch>0?(persons[c.batch-1]||'Batch '+(bl||c.batch)):'Not Assigned',cp2?(gF(c,'GSTR-1',cp2.id).dr||'No'):'N/A',cp2?(gF(c,'GSTR-1',cp2.id).drTs||''):''];RTS.forEach(rt=>{if(cp2){const f=gF(c,rt,cp2.id);row.push(f.st||'',f.dof||'',f.rem||'');}else{row.push('N/A','','');}});rows.push(row);});const csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='GST_Monthly_Save_'+periodName.replace(/\s/g,'_')+'.csv';a.click();const btn=event.target;const orig=btn.innerHTML;btn.innerHTML='✓ Saved!';btn.style.background='var(--ac2)';setTimeout(()=>{btn.innerHTML=orig;btn.style.background='';},1800);}
 function exportMonthReport(){const p=aP();const pLabel=(aPT==='M'?p.l:p.l)+' '+FY_LABEL;const lines=['GST FILING COMPLETION REPORT','Period: '+pLabel,'Generated: '+new Date().toLocaleDateString('en-IN'),''];RTS.forEach(rt=>{let filed=0,tot=0;clients.forEach(c=>{const pp=gPc(c,aPT,aPi);if(!pp)return;tot++;if(isFin(rt,gF(c,rt,pp.id).st))filed++;});lines.push(rt+': '+filed+'/'+tot+' filed ('+(tot?Math.round(filed/tot*100):0)+'%)');});lines.push('','── PENDING (GSTR-1 not filed) ──');clients.forEach(c=>{const pp=gPc(c,aPT,aPi);if(!pp)return;const f=gF(c,'GSTR-1',pp.id);if(!isFin('GSTR-1',f.st))lines.push(c.name+' | '+c.gstin+' | '+f.st);});const blob=new Blob([lines.join('\n')],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='GST_Report_'+pLabel.replace(/\s/g,'_')+'.txt';a.click();showToast('📊 Report exported!');}
 
 // ── PAGINATION ──
